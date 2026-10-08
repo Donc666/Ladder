@@ -148,7 +148,7 @@ def get_provider_config(provider: str) -> ProviderConfig:
 
     if provider == "openai":
         return ProviderConfig(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5.6"),
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             api_key=_require_api_key("OPENAI_API_KEY"),
         )
@@ -373,7 +373,7 @@ def get_provider_config(provider: str) -> ProviderConfig:
 
     if provider == "openai":
         return ProviderConfig(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5.6"),
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             api_key=_require_api_key("OPENAI_API_KEY"),
         )
