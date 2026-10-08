@@ -1,0 +1,42 @@
+{
+  "task_name": "place_mouse_pad",
+  "assets": [
+
+
+        {
+      "id": "mouse_1",
+      "type": "mouse",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "mouse_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "block_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

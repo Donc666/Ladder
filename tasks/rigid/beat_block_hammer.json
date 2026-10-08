@@ -1,0 +1,40 @@
+{
+  "task_name": "beat_block_hammer",
+  "assets": [
+
+
+        {
+      "id": "hammer_1",
+      "type": "hammer",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "hammer_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "block_1",
+      "atom": "beat",
+      "params": {}
+    }
+
+  ]
+}

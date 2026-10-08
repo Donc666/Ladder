@@ -1,0 +1,33 @@
+{
+  "task_name": "hand_over_block",
+  "assets": [
+
+
+        {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "block_1",
+      "atom": "hand_over_left2right",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

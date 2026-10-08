@@ -1,0 +1,41 @@
+{
+  "task_name": "place_object_scale",
+  "assets": [
+
+
+        {
+      "id": "stapler_1",
+      "type": "stapler",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "electronicscale_1",
+      "type": "electronicscale",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "stapler_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "electronicscale_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "task_name": "close_the_drawer_of_the_table",
+  "assets": [
+    {
+      "id": "table_drawer_concept_1",
+      "type": "table_drawer_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_drawer_1",
+      "type": "table_drawer",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "table_drawer_1",
+      "atom": "close",
+      "params": {
+        "fraction": 1.0
+      }
+    }
+  ]
+}

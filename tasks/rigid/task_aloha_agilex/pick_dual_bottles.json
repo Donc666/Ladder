@@ -1,0 +1,44 @@
+{
+  "task_name": "pick_dual_bottles",
+  "assets": [
+
+
+        {
+      "id": "bottle_1",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "bottle_2",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bottle_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+        {
+      "asset": "bottle_2",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

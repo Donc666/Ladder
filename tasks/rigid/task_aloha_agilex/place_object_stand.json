@@ -1,0 +1,41 @@
+{
+  "task_name": "place_object_stand",
+  "assets": [
+
+
+        {
+      "id": "displaystand_1",
+      "type": "displaystand",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "rubikscube_1",
+      "type": "rubikscube",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "rubikscube_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "displaystand_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

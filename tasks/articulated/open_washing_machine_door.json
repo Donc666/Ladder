@@ -1,0 +1,24 @@
+{
+  "task_name": "open_washing_machine_door",
+  "assets": [
+    {
+      "id": "washingmachine_concept_1",
+      "type": "washingmachine_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "washingmachine_1",
+      "type": "washingmachine",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "washingmachine_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.7
+      }
+    }
+  ]
+}

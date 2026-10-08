@@ -1,0 +1,55 @@
+{
+  "task_name": "blocks_ranking_RGB",
+  "assets": [
+
+
+        {
+      "id": "block_red_1",
+      "type": "block_red",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "block_green_1",
+      "type": "block_green",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "block_blue_1",
+      "type": "block_blue",
+      "asset_kind": "auto"
+    },
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "block_red_1",
+      "atom": "place_red",
+      "params": {}
+    },
+        {
+      "asset": "block_green_1",
+      "atom": "place_green",
+      "params": {}
+    },
+        {
+      "asset": "block_blue_1",
+      "atom": "place_blue",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

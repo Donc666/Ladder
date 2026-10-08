@@ -1,0 +1,33 @@
+{
+  "task_name": "click_alarmclock",
+  "assets": [
+
+
+        {
+      "id": "clock_1",
+      "type": "clock",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "clock_1",
+      "atom": "click",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

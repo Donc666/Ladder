@@ -1,0 +1,31 @@
+{
+  "task_name": "open_both_refrigerator_doors",
+  "assets": [
+    {
+      "id": "refrigerator_concept_1",
+      "type": "refrigerator_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "refrigerator_1",
+      "type": "refrigerator",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "refrigerator_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.6
+      }
+    },
+    {
+      "asset": "refrigerator_1",
+      "atom": "open_other",
+      "params": {
+        "fraction": 0.6
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "task_name": "open_partnet_laptop",
+  "assets": [
+    {
+      "id": "partnet_laptop_concept_1",
+      "type": "partnet_laptop_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_laptop_1",
+      "type": "partnet_laptop",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_laptop_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.7
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "task_name": "unfold_chair",
+  "assets": [
+    {
+      "id": "foldingchair_concept_1",
+      "type": "foldingchair_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "foldingchair_1",
+      "type": "foldingchair",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "foldingchair_1",
+      "atom": "unfold",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

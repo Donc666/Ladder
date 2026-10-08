@@ -1,0 +1,24 @@
+{
+  "task_name": "press_dishwasher_start",
+  "assets": [
+    {
+      "id": "dishwasher_concept_1",
+      "type": "dishwasher_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "dishwasher_1",
+      "type": "dishwasher",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "dishwasher_1",
+      "atom": "press",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

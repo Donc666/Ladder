@@ -1,0 +1,22 @@
+{
+  "task_name": "grab_roller_with_both_arms",
+  "assets": [
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "roller_1",
+      "type": "roller",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "roller_1",
+      "atom": "grap_simulataneously",
+      "params": {}
+    }
+  ]
+}

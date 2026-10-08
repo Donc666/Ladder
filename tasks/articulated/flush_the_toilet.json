@@ -1,0 +1,24 @@
+{
+  "task_name": "flush_the_toilet",
+  "assets": [
+    {
+      "id": "toilet_concept_1",
+      "type": "toilet_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "toilet_1",
+      "type": "toilet",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "toilet_1",
+      "atom": "flush",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

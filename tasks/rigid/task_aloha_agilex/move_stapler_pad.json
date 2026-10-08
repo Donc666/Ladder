@@ -1,0 +1,43 @@
+{
+  "task_name": "put_object_cabinet",
+  "assets": [
+
+
+        {
+      "id": "stapler_1",
+      "type": "stapler",
+      "asset_kind": "auto"
+    },
+
+        {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "stapler_1",
+      "atom": "pick",
+      "params": {}
+    },
+
+                    {
+      "asset": "block_1",
+      "atom": "on",
+      "params": {}
+    }
+  ]
+}

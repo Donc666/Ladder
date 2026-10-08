@@ -1,0 +1,55 @@
+{
+  "task_name": "blocks_ranking_size",
+  "assets": [
+
+
+        {
+      "id": "block_small_1",
+      "type": "block_small",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "block_middle_1",
+      "type": "block_middle",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "block_big_1",
+      "type": "block_big",
+      "asset_kind": "auto"
+    },
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "block_small_1",
+      "atom": "place_small",
+      "params": {}
+    },
+        {
+      "asset": "block_middle_1",
+      "atom": "place_middle",
+      "params": {}
+    },
+        {
+      "asset": "block_big_1",
+      "atom": "place_big",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

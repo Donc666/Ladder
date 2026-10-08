@@ -1,0 +1,24 @@
+{
+  "task_name": "open_partial_box_lid",
+  "assets": [
+    {
+      "id": "box_concept_1",
+      "type": "box_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "box_1",
+      "type": "box",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "box_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

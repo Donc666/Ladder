@@ -1,0 +1,32 @@
+{
+  "task_name": "press_stapler",
+  "assets": [
+
+
+        {
+      "id": "stapler_1",
+      "type": "stapler",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "stapler_1",
+      "atom": "press",
+      "params": {}
+    }
+
+  ]
+}

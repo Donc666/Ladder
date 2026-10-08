@@ -1,0 +1,45 @@
+{
+  "task_name": "place_can_basket",
+  "assets": [
+
+
+        {
+      "id": "can_1",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "basket_1",
+      "type": "basket",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "can_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "basket_1",
+      "atom": "into_1",
+      "params": {}
+    },
+                {
+      "asset": "basket_1",
+      "atom": "pick",
+      "params": {}
+    }
+
+  ]
+}

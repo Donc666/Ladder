@@ -1,0 +1,82 @@
+robot_cfg:
+  kinematics:
+    urdf_path: robots/aloha-agilex/urdf/arx5_description_isaac.urdf
+    asset_root_path: null
+    base_link: "fr_base_link"
+    tool_frames: ["fr_link6"]
+
+    collision_link_names: [        
+        "fr_base_link",
+        "fr_link1",
+        "fr_link2",
+        "fr_link3",
+        "fr_link4",
+        "fr_link5",
+        "fr_link6",
+        "fr_link7",
+        "fr_link8",
+        "right_camera"
+        ]
+    collision_spheres: robots/aloha-agilex/collision_aloha_right.yml
+    collision_sphere_buffer: 0.004
+    extra_collision_spheres: {}
+    use_global_cumul: True
+    self_collision_ignore:
+      {
+        "fr_base_link": ["fr_link1"],
+        "fr_link1": ["fr_link2"],
+        "fr_link2": ["fr_link3"],
+        "fr_link3": ["fr_link4"],
+        "fr_link4": ["fr_link5", "fr_link7", "right_camera", "fr_link8"],
+        "fr_link5": ["fr_link6", "fr_link7", "right_camera", "fr_link8"],
+        "fr_link6": ["fr_link7", "right_camera", "fr_link8"],
+        "fr_link7": ["fr_link8", "right_camera"]
+      }
+    self_collision_buffer:
+      {
+        "fr_base_link": 0.00,
+        "fr_link1": 0.00,
+        "fr_link2": 0.00,
+        "fr_link3": 0.00,
+        "fr_link4": 0.00,
+        "fr_link5": 0.00,
+        "fr_link6": 0.00,
+        "fr_link7": 0.00,
+        "fr_link8": 0.00,
+        "right_camera": 0.00
+      }
+
+    mesh_link_names: [        
+        "fr_base_link",
+        "fr_link1",
+        "fr_link2",
+        "fr_link3",
+        "fr_link4",
+        "fr_link5",
+        "fr_link6",
+        "fr_link7",
+        "fr_link8",
+        "right_camera"
+        ]
+    extra_links: {}
+
+    cspace:
+      joint_names: [        
+        "fr_joint1",
+        "fr_joint2",
+        "fr_joint3",
+        "fr_joint4",
+        "fr_joint5",
+        "fr_joint6",
+        "fr_joint7",
+        "fr_joint8"
+        ]
+      null_space_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      default_joint_position: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.04]
+      cspace_distance_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+      null_space_maximum_distance: [3.14,3.14,3.14,3.14,3.14,3.14,0.2,0.2]
+      max_jerk: 100.0
+      max_acceleration: 3.0
+
+planner:
+  frame_bias: [-0.2305, -0.297, -0.782]

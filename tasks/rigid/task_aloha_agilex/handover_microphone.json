@@ -1,0 +1,33 @@
+{
+  "task_name": "handover_microphonr",
+  "assets": [
+
+
+        {
+      "id": "microphone_1",
+      "type": "microphone",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "microphone_1",
+      "atom": "hand_over",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

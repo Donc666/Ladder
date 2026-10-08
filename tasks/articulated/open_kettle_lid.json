@@ -1,0 +1,24 @@
+{
+  "task_name": "open_kettle_lid",
+  "assets": [
+    {
+      "id": "kettle_concept_1",
+      "type": "kettle_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "kettle_1",
+      "type": "kettle",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "kettle_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.6
+      }
+    }
+  ]
+}

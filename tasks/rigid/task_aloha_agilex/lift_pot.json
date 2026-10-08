@@ -1,0 +1,41 @@
+{
+  "task_name": "lift_pot",
+  "assets": [
+
+        {
+      "id": "kitchenpot_concept_1",
+      "type": "kitchenpot_concept",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "kitchenpot_1",
+      "type": "kitchenpot",
+      "asset_kind": "auto"
+    },
+
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "kitchenpot_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+                {
+      "asset": "kitchenpot_1",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    }
+  ]
+}

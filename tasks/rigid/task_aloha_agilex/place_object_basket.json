@@ -1,0 +1,45 @@
+{
+  "task_name": "place_object_basket",
+  "assets": [
+
+
+        {
+      "id": "toycar_1",
+      "type": "toycar",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "basket_1",
+      "type": "basket",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "toycar_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "basket_1",
+      "atom": "into_1",
+      "params": {}
+    },
+                {
+      "asset": "basket_1",
+      "atom": "pick",
+      "params": {}
+    }
+
+  ]
+}

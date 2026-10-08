@@ -1,0 +1,24 @@
+{
+  "task_name": "open_partnet_microwave",
+  "assets": [
+    {
+      "id": "partnet_microwave_concept_1",
+      "type": "partnet_microwave_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_microwave_1",
+      "type": "partnet_microwave",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_microwave_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.7
+      }
+    }
+  ]
+}

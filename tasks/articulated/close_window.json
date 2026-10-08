@@ -1,0 +1,24 @@
+{
+  "task_name": "close_window",
+  "assets": [
+    {
+      "id": "partnet_window_concept_1",
+      "type": "partnet_window_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_window_1",
+      "type": "partnet_window",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_window_1",
+      "atom": "close",
+      "params": {
+        "fraction": 1.0
+      }
+    }
+  ]
+}

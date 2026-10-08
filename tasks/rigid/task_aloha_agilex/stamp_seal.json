@@ -1,0 +1,42 @@
+{
+  "task_name": "stamp_seal",
+  "assets": [
+
+
+        {
+      "id": "seal_1",
+      "type": "seal",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "seal_1",
+      "atom": "pick",
+      "params": {}
+    },
+          {
+      "asset": "block_1",
+      "atom": "on",
+      "params": {}
+    }
+  ]
+}

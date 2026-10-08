@@ -1,0 +1,24 @@
+{
+  "task_name": "open_stapler_lid",
+  "assets": [
+    {
+      "id": "stapler_lid_concept_1",
+      "type": "stapler_lid_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "stapler_lid_1",
+      "type": "stapler_lid",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "stapler_lid_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

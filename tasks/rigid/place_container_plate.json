@@ -1,0 +1,41 @@
+{
+  "task_name": "place_container_plate",
+  "assets": [
+
+
+        {
+      "id": "bowl_1",
+      "type": "bowl",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "plate_1",
+      "type": "plate",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "bowl_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "plate_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

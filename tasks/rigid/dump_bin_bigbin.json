@@ -1,0 +1,59 @@
+{
+  "task_name": "dump_bin_bigbin",
+  "assets": [
+
+
+        {
+      "id": "tabletrashbin_1",
+      "type": "tabletrashbin",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "dustbin_1",
+      "type": "dustbin",
+      "asset_kind": "auto"
+    },
+                {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+                {
+      "id": "block_2",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+                {
+      "id": "block_3",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "tabletrashbin_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "dustbin_1",
+      "atom": "into",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

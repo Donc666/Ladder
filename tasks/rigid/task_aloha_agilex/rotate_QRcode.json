@@ -1,0 +1,37 @@
+{
+  "task_name": "Rotate_QRcode",
+  "assets": [
+
+
+        {
+      "id": "paymentsign_1",
+      "type": "paymentsign",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "paymentsign_1",
+      "atom": "pick",
+      "params": {}
+    },
+          {
+      "asset": "paymentsign_1",
+      "atom": "rotate",
+      "params": {}
+    }
+
+  ]
+}

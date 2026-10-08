@@ -1,0 +1,24 @@
+{
+  "task_name": "close_door",
+  "assets": [
+    {
+      "id": "partnet_door_concept_1",
+      "type": "partnet_door_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_door_1",
+      "type": "partnet_door",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_door_1",
+      "atom": "close",
+      "params": {
+        "fraction": 1.0
+      }
+    }
+  ]
+}

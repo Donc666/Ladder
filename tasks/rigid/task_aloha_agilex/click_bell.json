@@ -1,0 +1,33 @@
+{
+  "task_name": "click_bell",
+  "assets": [
+
+
+        {
+      "id": "bell_1",
+      "type": "bell",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bell_1",
+      "atom": "click",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

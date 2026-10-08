@@ -1,0 +1,24 @@
+{
+  "task_name": "turn_off_faucet",
+  "assets": [
+    {
+      "id": "faucet_concept_1",
+      "type": "faucet_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "faucet_1",
+      "type": "faucet",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "faucet_1",
+      "atom": "off",
+      "params": {
+        "fraction": 0.7
+      }
+    }
+  ]
+}

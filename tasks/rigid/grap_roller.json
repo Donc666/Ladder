@@ -1,0 +1,33 @@
+{
+  "task_name": "grap_roller",
+  "assets": [
+
+
+        {
+      "id": "roller_1",
+      "type": "roller",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "roller_1",
+      "atom": "grap_simulataneously",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

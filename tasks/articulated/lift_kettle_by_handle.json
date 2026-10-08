@@ -1,0 +1,30 @@
+{
+  "task_name": "lift_kettle_by_handle",
+  "assets": [
+    {
+      "id": "kettle_concept_1",
+      "type": "kettle_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "kettle_1",
+      "type": "kettle",
+      "asset_kind": "articulation"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "kettle_1",
+      "atom": "lift",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "task_name": "place_bread_basket",
+  "assets": [
+
+
+        {
+      "id": "bread_1",
+      "type": "bread",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "breadbasket_1",
+      "type": "breadbasket",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "bread_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "breadbasket_1",
+      "atom": "into",
+      "params": {}
+    }
+
+  ]
+}

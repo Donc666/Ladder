@@ -1,0 +1,41 @@
+{
+  "task_name": "place_A2B_left",
+  "assets": [
+
+
+        {
+      "id": "mouse_1",
+      "type": "mouse",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "bread_1",
+      "type": "bread",
+      "asset_kind": "auto"
+    },
+
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "mouse_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "bread_1",
+      "atom": "left",
+      "params": {}
+    }
+
+  ]
+}

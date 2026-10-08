@@ -1,0 +1,24 @@
+{
+  "task_name": "open_trashcan_lid",
+  "assets": [
+    {
+      "id": "trashcan_concept_1",
+      "type": "trashcan_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "trashcan_1",
+      "type": "trashcan",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "trashcan_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

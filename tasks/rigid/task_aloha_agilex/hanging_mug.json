@@ -1,0 +1,49 @@
+{
+  "task_name": "handover_microphonr",
+  "assets": [
+
+
+        {
+      "id": "mug_1",
+      "type": "mug",
+      "asset_kind": "auto"
+    },
+
+        {
+      "id": "rack_1",
+      "type": "rack",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "mug_1",
+      "atom": "place",
+      "params": {}
+    },
+            {
+      "asset": "mug_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "rack_1",
+      "atom": "hang",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

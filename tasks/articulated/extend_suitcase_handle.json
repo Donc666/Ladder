@@ -1,0 +1,24 @@
+{
+  "task_name": "extend_suitcase_handle",
+  "assets": [
+    {
+      "id": "suitcase_concept_1",
+      "type": "suitcase_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "suitcase_1",
+      "type": "suitcase",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "suitcase_1",
+      "atom": "extend",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

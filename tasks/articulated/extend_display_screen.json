@@ -1,0 +1,24 @@
+{
+  "task_name": "extend_display_screen",
+  "assets": [
+    {
+      "id": "display_concept_1",
+      "type": "display_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "display_1",
+      "type": "display",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "display_1",
+      "atom": "extend",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

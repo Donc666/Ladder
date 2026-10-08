@@ -1,0 +1,33 @@
+{
+  "task_name": "place_shoe",
+  "assets": [
+
+
+        {
+      "id": "shoe_1",
+      "type": "shoe",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "shoe_1",
+      "atom": "place",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

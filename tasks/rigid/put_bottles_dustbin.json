@@ -1,0 +1,82 @@
+{
+  "task_name": "put_bottles_dustbin",
+  "assets": [
+
+
+        {
+      "id": "bottle_1",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "dustbin_1",
+      "type": "dustbin",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "bottle_2",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "bottle_3",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+
+
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bottle_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "dustbin_1",
+      "atom": "into_2",
+      "params": {}
+    },
+        {
+      "asset": "bottle_2",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "dustbin_1",
+      "atom": "into_2",
+      "params": {}
+    },
+        {
+      "asset": "bottle_3",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "bottle_3",
+      "atom": "hand_over_right2left",
+      "params": {}
+    },
+        {
+      "asset": "dustbin_1",
+      "atom": "into_2",
+      "params": {}
+    }
+
+
+
+    
+    
+
+
+
+  ]
+}

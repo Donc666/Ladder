@@ -1,0 +1,24 @@
+{
+  "task_name": "move_clock_ahead",
+  "assets": [
+    {
+      "id": "clock_concept_1",
+      "type": "clock_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "clock_1",
+      "type": "clock",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "clock_1",
+      "atom": "advance",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

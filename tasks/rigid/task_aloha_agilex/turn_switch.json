@@ -1,0 +1,36 @@
+{
+  "task_name": "turn_switch",
+  "assets": [
+
+
+        {
+      "id": "switch_1",
+      "type": "switch",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "switch_concept_1",
+      "type": "switch_concept",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "switch_1",
+      "atom": "click",
+      "params": {}
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "task_name": "move_playingcards_away",
+  "assets": [
+
+
+        {
+      "id": "playingcards_1",
+      "type": "playingcards",
+      "asset_kind": "auto"
+    },
+
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "playingcards_1",
+      "atom": "place_away",
+      "params": {}
+    }
+
+  ]
+}

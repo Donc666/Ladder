@@ -1,0 +1,53 @@
+{
+  "task_name": "stacks_blocks_three",
+  "assets": [
+
+
+        {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "block_2",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "block_3",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "block_1",
+      "atom": "stack_bottom",
+      "params": {}
+    },
+        {
+      "asset": "block_2",
+      "atom": "stack_middle",
+      "params": {}
+    },
+        {
+      "asset": "block_3",
+      "atom": "stack_top",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

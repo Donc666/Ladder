@@ -1,0 +1,24 @@
+{
+  "task_name": "remove_pot_lid",
+  "assets": [
+    {
+      "id": "partnet_pot_concept_1",
+      "type": "partnet_pot_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_pot_1",
+      "type": "partnet_pot",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_pot_1",
+      "atom": "remove",
+      "params": {
+        "fraction": 0.6
+      }
+    }
+  ]
+}

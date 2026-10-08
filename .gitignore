@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Isaac / collection outputs
+run_logs/
+data/
+datas/
+collect_*/
+collect_test*/
+*.hdf5
+*.mp4
+
+# Local debug figures
+episode*.png
+traj_compare_*.png
+hdf5_ee_*.png
+
+# Third-party assets and datasets (download separately; too large for git)
+assets/
+Lightwheel_*/
+Partnet_Mobility_urdf/
+PartNetMobility/
+Grasp_Editor_Tutorial_Stage/
+robots/aloha-agilex/
+011_dustbin/
+
+# Papers and local PDFs
+paper/
+*.pdf

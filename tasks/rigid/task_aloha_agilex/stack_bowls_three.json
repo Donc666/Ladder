@@ -1,0 +1,53 @@
+{
+  "task_name": "stack_bowls_three",
+  "assets": [
+
+
+        {
+      "id": "bowl_1",
+      "type": "bowl",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "bowl_2",
+      "type": "bowl",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "bowl_3",
+      "type": "bowl",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table"
+      
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bowl_1",
+      "atom": "stack_bottom",
+      "params": {}
+    },
+        {
+      "asset": "bowl_2",
+      "atom": "stack_middle",
+      "params": {}
+    },
+        {
+      "asset": "bowl_3",
+      "atom": "stack_top",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

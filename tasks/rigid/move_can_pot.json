@@ -1,0 +1,45 @@
+{
+  "task_name": "move_can_pot",
+  "assets": [
+
+
+        {
+      "id": "can_1",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "kitchenpot_1",
+      "type": "kitchenpot",
+      "asset_kind": "auto"
+    },
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "can_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "kitchenpot_1",
+      "atom": "left",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

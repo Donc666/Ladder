@@ -1,0 +1,55 @@
+{
+  "task_name": "place_cans_plasticbox",
+  "assets": [
+
+
+        {
+      "id": "can_1",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "can_2",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "plasticbox_1",
+      "type": "plasticbox",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "can_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+            {
+      "asset": "can_2",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+                {
+      "asset": "plasticbox_1",
+      "atom": "into_1",
+      "params": {}
+    },
+                    {
+      "asset": "plasticbox_1",
+      "atom": "into_2",
+      "params": {}
+    }
+
+  ]
+}

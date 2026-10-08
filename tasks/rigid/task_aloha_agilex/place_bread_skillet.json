@@ -1,0 +1,46 @@
+{
+  "task_name": "place_bread_skillet",
+  "assets": [
+
+
+        {
+      "id": "bread_1",
+      "type": "bread",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "skillet_1",
+      "type": "skillet",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "skillet_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+        {
+      "asset": "bread_1",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+            {
+      "asset": "skillet_1",
+      "atom": "into",
+      "params": {}
+    }
+
+  ]
+}

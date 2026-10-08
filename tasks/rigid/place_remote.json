@@ -1,0 +1,33 @@
+{
+  "task_name": "place_remote",
+  "assets": [
+
+
+        {
+      "id": "remote_1",
+      "type": "remote",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+    {
+      "asset": "remote_1",
+      "atom": "pick",
+      "params": {}
+    }
+
+    
+    
+
+
+
+  ]
+}

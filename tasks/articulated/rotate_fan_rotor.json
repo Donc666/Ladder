@@ -1,0 +1,24 @@
+{
+  "task_name": "rotate_fan_rotor",
+  "assets": [
+    {
+      "id": "partnet_fan_concept_1",
+      "type": "partnet_fan_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "partnet_fan_1",
+      "type": "partnet_fan",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "partnet_fan_1",
+      "atom": "rotate",
+      "params": {
+        "fraction": 0.8
+      }
+    }
+  ]
+}

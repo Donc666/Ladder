@@ -1,0 +1,24 @@
+{
+  "task_name": "turn_on_lamp",
+  "assets": [
+    {
+      "id": "lamp_concept_1",
+      "type": "lamp_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "lamp_1",
+      "type": "lamp",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "lamp_1",
+      "atom": "on",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

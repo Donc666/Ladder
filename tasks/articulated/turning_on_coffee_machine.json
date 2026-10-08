@@ -1,0 +1,24 @@
+{
+  "task_name": "turning_on_coffee_machine",
+  "assets": [
+    {
+      "id": "coffeemachine_concept_1",
+      "type": "coffeemachine_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "coffeemachine_1",
+      "type": "coffeemachine",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "coffeemachine_1",
+      "atom": "on",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

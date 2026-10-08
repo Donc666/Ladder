@@ -1,0 +1,55 @@
+{
+  "task_name": "place_burger_fries",
+  "assets": [
+
+
+        {
+      "id": "hamburg_1",
+      "type": "hamburg",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "frenchfries_1",
+      "type": "frenchfries",
+      "asset_kind": "auto"
+    },
+                {
+      "id": "tray_1",
+      "type": "tray",
+      "asset_kind": "auto"
+    },
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "hamburg_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+            {
+      "asset": "frenchfries_1",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+                {
+      "asset": "tray_1",
+      "atom": "into_1",
+      "params": {}
+    },
+                    {
+      "asset": "tray_1",
+      "atom": "into_2",
+      "params": {}
+    }
+
+  ]
+}

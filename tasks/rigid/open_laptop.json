@@ -1,0 +1,37 @@
+{
+  "task_name": "open_laptop",
+  "assets": [
+
+
+                {
+      "id": "laptop_concept_1",
+      "type": "laptop_concept",
+      "asset_kind": "auto"
+    },
+        {
+      "id": "laptop_1",
+      "type": "laptop",
+      "asset_kind": "auto"
+    },
+
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "laptop_1",
+      "atom": "open",
+      "params": {}
+    }
+  ]
+}

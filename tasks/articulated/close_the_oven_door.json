@@ -1,0 +1,24 @@
+{
+  "task_name": "close_the_oven_door",
+  "assets": [
+    {
+      "id": "oven_concept_1",
+      "type": "oven_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "oven_1",
+      "type": "oven",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "oven_1",
+      "atom": "close",
+      "params": {
+        "fraction": 1.0
+      }
+    }
+  ]
+}

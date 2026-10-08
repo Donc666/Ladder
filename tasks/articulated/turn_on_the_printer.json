@@ -1,0 +1,24 @@
+{
+  "task_name": "turn_on_the_printer",
+  "assets": [
+    {
+      "id": "printer_concept_1",
+      "type": "printer_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "printer_1",
+      "type": "printer",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "printer_1",
+      "atom": "on",
+      "params": {
+        "fraction": 0.5
+      }
+    }
+  ]
+}

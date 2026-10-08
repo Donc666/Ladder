@@ -1,0 +1,24 @@
+{
+  "task_name": "rotate_globe",
+  "assets": [
+    {
+      "id": "globe_concept_1",
+      "type": "globe_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "globe_1",
+      "type": "globe",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "globe_1",
+      "atom": "rotate",
+      "params": {
+        "fraction": 0.8
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "task_name": "place_empty_cup",
+  "assets": [
+
+
+        {
+      "id": "cup_1",
+      "type": "cup",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "coaster_1",
+      "type": "coaster",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "cup_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "coaster_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

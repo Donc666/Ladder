@@ -1,0 +1,22 @@
+{
+  "task_name": "rotate_laptop_screen",
+  "assets": [
+    {
+      "id": "laptop_concept_1",
+      "type": "laptop_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "laptop_1",
+      "type": "laptop",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "laptop_1",
+      "atom": "open",
+      "params": {}
+    }
+  ]
+}

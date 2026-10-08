@@ -1,0 +1,43 @@
+{
+  "task_name": "move_pillbottle_pad",
+  "assets": [
+
+
+        {
+      "id": "pillbottle_1",
+      "type": "pillbottle",
+      "asset_kind": "auto"
+    },
+
+          {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto"
+    },
+
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "pillbottle_1",
+      "atom": "pick",
+      "params": {}
+    },
+                    {
+      "asset": "block_1",
+      "atom": "on",
+      "params": {}
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "task_name": "place_A2B_right",
+  "assets": [
+
+
+        {
+      "id": "toycar_1",
+      "type": "toycar",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "rubikscube_1",
+      "type": "rubikscube",
+      "asset_kind": "auto"
+    },
+
+
+
+
+          {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+  ],
+  "atomic_plan": [
+        {
+      "asset": "rubikscube_1",
+      "atom": "pick",
+      "params": {}
+    },
+            {
+      "asset": "toycar_1",
+      "atom": "right",
+      "params": {}
+    }
+
+  ]
+}

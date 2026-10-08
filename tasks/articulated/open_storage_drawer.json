@@ -1,0 +1,24 @@
+{
+  "task_name": "open_storage_drawer",
+  "assets": [
+    {
+      "id": "storage_drawer_concept_1",
+      "type": "storage_drawer_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "storage_drawer_1",
+      "type": "storage_drawer",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "storage_drawer_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.6
+      }
+    }
+  ]
+}

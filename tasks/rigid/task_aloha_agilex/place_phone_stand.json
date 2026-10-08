@@ -1,0 +1,41 @@
+{
+  "task_name": "place_phone_stand",
+  "assets": [
+
+
+        {
+      "id": "phonestand_1",
+      "type": "phonestand",
+      "asset_kind": "auto"
+    },
+            {
+      "id": "phone_1",
+      "type": "phone",
+      "asset_kind": "auto"
+    },
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "phone_1",
+      "atom": "pick",
+      "params": {}
+    },
+        {
+      "asset": "phonestand_1",
+      "atom": "on",
+      "params": {}
+    }
+
+  ]
+}

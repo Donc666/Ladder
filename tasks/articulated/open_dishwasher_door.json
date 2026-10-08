@@ -1,0 +1,24 @@
+{
+  "task_name": "open_dishwasher_door",
+  "assets": [
+    {
+      "id": "dishwasher_concept_1",
+      "type": "dishwasher_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "dishwasher_1",
+      "type": "dishwasher",
+      "asset_kind": "articulation"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "dishwasher_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.7
+      }
+    }
+  ]
+}

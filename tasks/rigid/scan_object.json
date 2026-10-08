@@ -1,0 +1,53 @@
+{
+  "task_name": "scan_object",
+  "assets": [
+
+
+        {
+      "id": "scanner_1",
+      "type": "scanner",
+      "asset_kind": "auto"
+    },
+
+            {
+      "id": "teabox_1",
+      "type": "teabox",
+      "asset_kind": "auto"
+    },
+
+
+              {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+
+
+
+
+
+  ],
+  "atomic_plan": [
+                {
+      "asset": "scanner_1",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+          {
+      "asset": "teabox_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+              {
+      "asset": "scanner_1",
+      "atom": "scan",
+      "params": {}
+    },
+              {
+      "asset": "teabox_1",
+      "atom": "scan",
+      "params": {}
+    }
+
+  ]
+}
