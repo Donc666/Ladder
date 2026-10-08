@@ -4,7 +4,6 @@ Run rigid and articulated skills from the JSON files in `tasks/` inside Isaac La
 
 ## Get the code
 
-Code is on GitHub. Models and scenes are on Hugging Face, because they are too large for GitHub. After installing [Git](https://git-scm.com/):
 
 ```bash
 git clone https://github.com/Donc666/Ladder.git
