@@ -343,18 +343,24 @@ class block ():
             height_range=(-0.05, 0.0)
             dz = np.random.uniform(*height_range)
             
-            self.hand_rot,_ = hand_rotate([0.707, 0, 0.707, 0],-self.angle_degree)
+            self.hand_rot,_ = hand_rotate([0.707, 0, 0.707, 0],self.angle_degree)
 
             hand_rot= rotate_y([0.707, 0, 0.707, 0],90)
-            target_pos_x = 0.5
-            target_pos_y = 0
-            target_pos_z = z+0.2
+            place = getattr(self, "stack_place", None)
+            if place is not None:
+                target_pos_x = float(place[0])
+                target_pos_y = float(place[1])
+            else:
+                target_pos_x = 0.5
+                target_pos_y = 0
+            base_z = float(getattr(self, "stack_table_z", z))
+            target_pos_z = base_z+0.2
             # handover_rot_right = rotate_x([0.707, 0, 0.707, 0],90)
             # handover_rot_right,_ = rotate_z(list(handover_rot_right),90)
 
             pose1= [x,y,z+0.2,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
             pose2 = [x,y,z+0.05,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
-            pose3 = [x,y,z+0.1,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
+            pose3 = [x,y,z+0.2,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
             pose4 = [target_pos_x,target_pos_y,target_pos_z,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
             pose5 = [target_pos_x,target_pos_y,target_pos_z-0.1,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
             pose6 = [target_pos_x,target_pos_y,target_pos_z,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
@@ -393,22 +399,27 @@ class block ():
             height_range=(-0.05, 0.0)
             dz = np.random.uniform(*height_range)
             
-            self.hand_rot,_ = hand_rotate([0.707, 0, 0.707, 0],-self.angle_degree)
+            self.hand_rot,_ = hand_rotate([0.707, 0, 0.707, 0],self.angle_degree)
             self.hand_rot2,_ = rotate_z([0.707, 0, 0.707, 0],self.angle_degree)
 
             hand_rot= rotate_y([0.707, 0, 0.707, 0],90)
-            target_pos_x = 0.5
-            target_pos_y = 0
+            place = getattr(self, "stack_place", None)
+            if place is not None:
+                target_pos_x = float(place[0])
+                target_pos_y = float(place[1])
+            else:
+                target_pos_x = 0.5
+                target_pos_y = 0
             target_pos_z = z+0.3
             # handover_rot_right = rotate_x([0.707, 0, 0.707, 0],90)
             # handover_rot_right,_ = rotate_z(list(handover_rot_right),90)
 
             pose1= [x,y,z+0.2,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
             pose2 = [x,y,z+0.05,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
-            pose3 = [x,y,z+0.1,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
-            pose4 = [target_pos_x,target_pos_y,target_pos_z,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
-            pose5 = [target_pos_x,target_pos_y,target_pos_z-0.2,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
-            pose6 = [target_pos_x,target_pos_y,target_pos_z,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
+            pose3 = [x,y,z+0.2,self.hand_rot[0], self.hand_rot[1],self.hand_rot[2],self.hand_rot[3]]
+            pose4 = [target_pos_x,target_pos_y,target_pos_z,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
+            pose5 = [target_pos_x,target_pos_y,target_pos_z-0.2,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
+            pose6 = [target_pos_x,target_pos_y,target_pos_z,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
 
             if y < 0:
                 executor = "robot_right"

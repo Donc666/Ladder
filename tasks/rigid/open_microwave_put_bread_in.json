@@ -1,0 +1,15 @@
+{
+  "task_name": "open_microwave_put_bread_in",
+  "assets": [
+    {"id": "microwave_concept_1", "type": "microwave_concept", "asset_kind": "auto"},
+    {"id": "microwave_1", "type": "microwave", "asset_kind": "auto"},
+    {"id": "bread_1", "type": "bread", "asset_kind": "auto"},
+    {"id": "table_1", "type": "table", "asset_kind": "auto"}
+  ],
+  "atomic_plan": [
+    {"asset": "microwave_1", "atom": "open", "params": {}},
+    {"asset": "bread_1", "atom": "pick", "params": {}},
+    {"asset": "microwave_1", "atom": "into", "params": {}},
+    {"asset": "microwave_1", "atom": "close", "params": {}}
+  ]
+}

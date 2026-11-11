@@ -179,11 +179,14 @@ class AssetCfg:
     rot: Tuple[float, float, float, float]
     scale: Tuple[float, float, float] = (1.0, 1.0, 1.0)
     mass : float = 0.1
+    # kg/m^3 used when the URDF link has no inertial mass. 0 keeps the importer default.
+    link_density: float = 0.0
     disable_gravity : bool =False 
 
-    # 资产来源: urdf / cuboid（方块）
-    source_kind: Literal["urdf", "cuboid"] = "urdf"
+    # 资产来源: urdf / cuboid（方块）/ usd（已带碰撞的 USD）
+    source_kind: Literal["urdf", "cuboid", "usd"] = "urdf"
     urdf_path: Optional[str] = None
+    usd_path: Optional[str] = None
     cuboid_size: Optional[Tuple[float, float, float]] = None
     cuboid_color: Tuple[float, float, float] = (1.0, 0.5, 0.2)
 
@@ -359,6 +362,7 @@ class SceneBuilder:
                 max_angular_velocity=1000.0,
                 max_depenetration_velocity=100.0,
             ),
+            link_density=asset.link_density,
             joint_drive=UrdfConverterCfg.JointDriveCfg(
                 gains=UrdfConverterCfg.JointDriveCfg.PDGainsCfg(
                     stiffness=asset.stiffness,
@@ -411,6 +415,29 @@ class SceneBuilder:
                 ),
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(),
                 collision_props=sim_utils.CollisionPropertiesCfg(),
+            )
+        elif asset.source_kind == "usd":
+            if not asset.usd_path:
+                raise ValueError(f"{asset.name}: usd_path is required when source_kind='usd'")
+            spawn_cfg = sim_utils.UsdFileCfg(
+                usd_path=asset.usd_path,
+                scale=asset.scale,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=asset.disable_gravity,
+                    kinematic_enabled=asset.fix_base,
+                    retain_accelerations=False,
+                    linear_damping=2.0,
+                    angular_damping=4.0,
+                    max_linear_velocity=1000.0,
+                    max_angular_velocity=1000.0,
+                    max_depenetration_velocity=1.0,
+                ),
+                collision_props=sim_utils.CollisionPropertiesCfg(
+                    collision_enabled=True,
+                    contact_offset=0.005,
+                    rest_offset=0.0,
+                ),
+                mass_props=sim_utils.MassPropertiesCfg(mass=asset.mass),
             )
         else:
             if not asset.urdf_path:

@@ -316,6 +316,18 @@ def get_link_pose_physics(asset, link_name: str, env_id: int = 0):
     return pos, quat_wxyz
 
 
+def planner_env_origin(scene, env_id: int = 0) -> np.ndarray:
+    """Clone offset of one env. Single-env runs stay at zero."""
+    origins = getattr(scene, "env_origins", None)
+    if origins is None:
+        return np.zeros(3, dtype=np.float64)
+    n = int(origins.shape[0])
+    if n <= 0:
+        return np.zeros(3, dtype=np.float64)
+    idx = min(max(int(env_id), 0), n - 1)
+    return np.asarray(origins[idx].detach().cpu().numpy(), dtype=np.float64).reshape(3)
+
+
 def map_concept_point_to_real_xy(
     point_xyz: np.ndarray, concept_root_pos_w: np.ndarray, real_root_pos_w: np.ndarray
 ) -> np.ndarray:
@@ -657,7 +669,10 @@ def generate_handle_arc_points_about_axis(
     r0 = p0 - c
 
     pts = []
-    for deg in range(0, max_deg + 1, step_deg):
+    degrees = list(range(0, int(max_deg) + 1, int(step_deg)))
+    if not degrees or degrees[-1] != int(max_deg):
+        degrees.append(int(max_deg))
+    for deg in degrees:
         th = np.deg2rad(deg)
         r = (
             r0 * np.cos(th)
@@ -1075,9 +1090,14 @@ CONVERTED_ROOT = PROJECT_ROOT / "assets"
 # Datasets live inside this repo. Override with env vars if you keep them elsewhere.
 PARTNET_MOBILITY_ROOT = Path(os.environ.get("PARTNET_MOBILITY_ROOT", PROJECT_ROOT / "PartNetMobility"))
 PARTNET_CONCEPT_ROOT = Path(os.environ.get("PARTNET_CONCEPT_ROOT", PROJECT_ROOT / "Partnet_Mobility_urdf"))
+# False draws a PartNetMobility/Microwave model that has a paired concept.
+# True restores the previous single model assets/microwave/7310.
+MICROWAVE_PIN_SINGLE = True
 
-# Articulated types only. Rigid types (laptop, window, microwave, storagefurniture)
-# resolve under assets/ via pick_random_urdf.
+# Articulated types load mobility.urdf from PartNetMobility/<Category>/.
+# Rigid types (cup, table, laptop, storagefurniture, ...) load from assets/.
+# microwave is special-cased in pick_random_urdf: assets/microwave/7310 when
+# MICROWAVE_PIN_SINGLE is True, otherwise one of the 16 PartNetMobility/Microwave models.
 TYPE_TO_PARTNET_CAT = {
     "suitcase": "Suitcase",
     "toilet": "Toilet",
@@ -1104,7 +1124,9 @@ TYPE_TO_PARTNET_CAT = {
     "partnet_pot": "KitchenPot",
     "partnet_microwave": "Microwave",
     "partnet_switch": "Switch",
+    "window": "Window",
     "partnet_window": "Window",
+    "cabinet": "StorageFurniture",
     "partnet_laptop": "Laptop",
     "storage_drawer": "StorageFurniture",
 }
@@ -1186,6 +1208,7 @@ TYPE_TO_CONCEPT_NEEDLES = {
     "partnet_window": ["handle", "window"],
     "partnet_laptop": ["screen"],
     "storage_drawer": ["drawer"],
+    "cabinet": ["Regular_door"],
 }
 
 
@@ -1251,6 +1274,45 @@ def pick_random_urdf(
     """
     raw_type = str(asset_item.get("type") or "").strip()
     base_type = raw_type[:-8] if raw_type.endswith("_concept") else raw_type
+    if base_type == "cabinet":
+        fixed = PARTNET_MOBILITY_ROOT / "StorageFurniture" / "46653" / "mobility.urdf"
+        if not fixed.is_file():
+            raise FileNotFoundError(f"cabinet 46653 URDF not found: {fixed}")
+        print(f"[INFO] pick fixed cabinet 46653 -> {fixed}")
+        return str(fixed)
+    if base_type == "oven":
+        fixed = PARTNET_MOBILITY_ROOT / "Oven" / "101946" / "mobility.urdf"
+        if not fixed.is_file():
+            raise FileNotFoundError(f"oven 101946 URDF not found: {fixed}")
+        print(f"[INFO] pick fixed oven 101946 -> {fixed}")
+        return str(fixed)
+    if base_type == "window":
+        fixed = PARTNET_MOBILITY_ROOT / "Window" / "102984" / "mobility.urdf"
+        if not fixed.is_file():
+            raise FileNotFoundError(f"window 102984 URDF not found: {fixed}")
+        print(f"[INFO] pick fixed window 102984 -> {fixed}")
+        return str(fixed)
+    # False: a PartNet microwave whose concept template matches that model id.
+    # True: always the previous single model, assets/microwave/7310.
+    if base_type == "microwave":
+        if MICROWAVE_PIN_SINGLE:
+            fixed = CONVERTED_ROOT / "microwave" / "7310" / "mobility.urdf"
+            if not fixed.is_file():
+                raise FileNotFoundError(f"microwave 7310 URDF not found: {fixed}")
+            print(f"[INFO] pick fixed microwave 7310 -> {fixed}")
+            return str(fixed)
+        partnet_urdf = pick_partnet_mobility_urdf(
+            "Microwave",
+            keywords=["door"],
+            require_concept=True,
+            require_concept_needles=["handle"],
+        )
+        if not partnet_urdf:
+            raise FileNotFoundError(
+                f"no PartNet microwave with a paired concept handle under {PARTNET_MOBILITY_ROOT / 'Microwave'}"
+            )
+        print(f"[INFO] pick PartNet microwave -> {partnet_urdf}")
+        return partnet_urdf
     partnet_cat = TYPE_TO_PARTNET_CAT.get(base_type)
     if partnet_cat:
         needles = TYPE_TO_CONCEPT_NEEDLES.get(base_type) if require_concept else None
@@ -1265,6 +1327,47 @@ def pick_random_urdf(
             return partnet_urdf
     if not root.exists():
         raise FileNotFoundError(f"converted_assets root not found: {root}")
+    # Each import draws one model from a fixed pool.
+    fixed_five = {
+        "shoe": (
+            "041_shoe/base0/urdf/mobility.urdf",
+            "041_shoe/base1/urdf/mobility.urdf",
+            "041_shoe/base2/urdf/mobility.urdf",
+            "041_shoe/base3/urdf/mobility.urdf",
+            "041_shoe/base4/urdf/mobility.urdf",
+        ),
+        "can": (
+            "071_can/base0/urdf/mobility.urdf",
+            "071_can/base1/urdf/mobility.urdf",
+            "071_can/base2/urdf/mobility.urdf",
+            "071_can/base3/urdf/mobility.urdf",
+            "071_can/base5/urdf/mobility.urdf",
+        ),
+        "bowl": (
+            "bowl/base1/urdf/mobility.urdf",
+            "bowl/base2/urdf/mobility.urdf",
+            "bowl/base3/urdf/mobility.urdf",
+        ),
+        "phone": (
+            "077_phone/base2/urdf/mobility.urdf",
+            "077_phone/base3/urdf/mobility.urdf",
+        ),
+        "electronicscale": (
+            "072_electronicscale/base0/urdf/mobility.urdf",
+            "072_electronicscale/base1/urdf/mobility.urdf",
+        ),
+        "paymentsign": (
+            "070_paymentsign/base0/urdf/mobility.urdf",
+            "070_paymentsign/base1/urdf/mobility.urdf",
+        ),
+    }.get(base_type)
+    if fixed_five:
+        pool = [root / rel for rel in fixed_five if (root / rel).is_file()]
+        if not pool:
+            raise FileNotFoundError(f"No fixed {base_type} URDFs under {root}")
+        chosen = random.choice(pool)
+        print(f"[INFO] {base_type} picked 1 of {len(pool)} fixed models -> {chosen}")
+        return str(chosen)
     # Priority keys
     priority_fields = ("asset_name", "id", "type")
     tried = []
@@ -1289,4 +1392,14 @@ def pick_random_urdf(
     urdf_files = _collect_urdf_files(chosen_dir)
     if not urdf_files:
         raise FileNotFoundError(f"No .urdf found in matched directory: {chosen_dir}")
+    # Data collection uses a subset: 4 bread models, 1 skillet model.
+    allowed_subdirs = {"bread": ("base0", "base1", "base2", "base3"), "skillet": ("base0",)}.get(base_type)
+    if allowed_subdirs:
+        limited = [p for p in urdf_files if any(part in allowed_subdirs for part in p.parts)]
+        if not limited:
+            raise FileNotFoundError(
+                f"No {base_type} URDF in {allowed_subdirs} under {chosen_dir}"
+            )
+        urdf_files = limited
+        print(f"[INFO] {base_type} limited to {len(urdf_files)} model(s): {', '.join(allowed_subdirs)}")
     return str(random.choice(urdf_files))

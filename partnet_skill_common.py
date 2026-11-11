@@ -63,6 +63,7 @@ class SkillSpec:
     grasp_offset_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
     arc_radius_shrink: float = 0.0  # pull EE toward the hinge in the swing plane
     grasp_index: int = 0  # 0 = best handle, 1 = second door, ...
+    plan_from_commanded: bool = False  # FK the handle at the commanded joint, not the stale physics pose
 
 
 def spawn_rot_wxyz(spec: SkillSpec, yaw_deg: float) -> tuple[float, float, float, float]:
@@ -228,6 +229,67 @@ def fk_link_world_pos(
             T = T @ Tp
     pos, quat = _pos_quat_from_T(T)
     return pos, quat
+
+
+def revolute_joint_for_child(urdf_path: str, child_link: str | None = None) -> str | None:
+    """First revolute joint, or the one whose child link is `child_link`."""
+    try:
+        root = ET.parse(urdf_path).getroot()
+    except Exception:
+        return None
+    fallback = None
+    for joint in root.findall("joint"):
+        if (joint.attrib.get("type") or "").lower() not in {"revolute", "continuous"}:
+            continue
+        name = joint.attrib.get("name") or ""
+        if not name:
+            continue
+        if fallback is None:
+            fallback = name
+        child = joint.find("child")
+        child_name = child.attrib.get("link") if child is not None else ""
+        if child_link and child_name == child_link:
+            return name
+    return fallback
+
+
+def largest_abs_joint(asset, env_id: int) -> tuple[str | None, float]:
+    """Joint that has moved the most. After an open, that is the door."""
+    best_name = None
+    best_q = 0.0
+    for name in list(getattr(asset, "joint_names", []) or []):
+        q = _read_joint_q(asset, name, env_id)
+        if q is None:
+            continue
+        if best_name is None or abs(q) > abs(best_q):
+            best_name, best_q = name, float(q)
+    return best_name, best_q
+
+
+def repose_waypoints(pack, real_root, real_quat_wxyz, spawn_quat_wxyz, spawn_z=None):
+    """Carry a spawn-yaw trajectory onto the asset's current position and orientation.
+
+    XY was already mapped to the live root. This applies the yaw/tilt since spawn
+    about that root, then the vertical drift from the spawn height.
+    """
+    if not pack:
+        return pack
+    r_delta = R.from_quat(wxyz_to_xyzw(real_quat_wxyz)) * R.from_quat(wxyz_to_xyzw(spawn_quat_wxyz)).inv()
+    root = np.asarray(real_root, dtype=np.float64)
+    dz = 0.0 if spawn_z is None else float(root[2]) - float(spawn_z)
+    out = []
+    for item in pack:
+        pose = list(item["pose"])
+        p = np.asarray(pose[:3], dtype=np.float64)
+        p = root + r_delta.apply(p - root)
+        p[2] += dz
+        q = xyzw_to_wxyz((r_delta * R.from_quat(wxyz_to_xyzw(pose[3:7]))).as_quat())
+        pose[0], pose[1], pose[2] = float(p[0]), float(p[1]), float(p[2])
+        pose[3], pose[4], pose[5], pose[6] = float(q[0]), float(q[1]), float(q[2]), float(q[3])
+        updated = dict(item)
+        updated["pose"] = pose
+        out.append(updated)
+    return out
 
 
 def joint_limits(urdf_path: str, joint_name: str, default: float = 0.3):
@@ -994,12 +1056,13 @@ class PartNetSkill:
             allow_fallback=False,
         )
         self.concept_urdf_path = CONCEPT_PATHS.get(spec.type_name) or resolved or urdf_path
-        joint_pos = posed_joint_pos(urdf_path, spec.init_open_fraction, spec.skip_joint_keywords)
+        spawn_fraction = 0.0 if getattr(self, "spawn_closed", False) else float(spec.init_open_fraction)
+        joint_pos = posed_joint_pos(urdf_path, spawn_fraction, spec.skip_joint_keywords)
         x1, y1 = spec.spawn_xy
         print(
             f"[{spec.type_name}] spawn PartNet urdf={urdf_path} model_id={model_id} "
             f"pos=({x1:.2f},{y1:.2f},{spec.spawn_z:.2f}) scale={spec.scale} "
-            f"init_open={spec.init_open_fraction:.2f} joints={joint_pos}"
+            f"init_open={spawn_fraction:.2f} joints={joint_pos}"
         )
         cfgs = []
         for _env_id in range(num_envs):
@@ -1028,7 +1091,14 @@ class PartNetSkill:
             )
         return cfgs
 
-    def execute(self, scene, env_id: int = 0, fraction: float | None = None, spec_override: SkillSpec | None = None):
+    def execute(
+        self,
+        scene,
+        env_id: int = 0,
+        fraction: float | None = None,
+        spec_override: SkillSpec | None = None,
+        live_state: bool = False,
+    ):
         spec = spec_override or self.spec
         asset = scene_asset(scene, self.scene_key, env_id)
         if asset is None:
@@ -1044,18 +1114,37 @@ class PartNetSkill:
         if not concept_urdf:
             raise RuntimeError(f"concept URDF missing for {spec.type_name}")
 
-        if spec.init_open_fraction > 1e-6:
-            open_real = posed_joint_pos(self.urdf_path, spec.init_open_fraction, spec.skip_joint_keywords)
+        live_q_now = None
+        if live_state:
+            real_jname, q_real = largest_abs_joint(asset, env_id)
+            frac = 0.0
+            if real_jname:
+                lo, hi = joint_limits(self.urdf_path, real_jname)
+                q_closed_real, q_opened_real = _closed_open_limits(lo, hi)
+                span = float(q_opened_real - q_closed_real)
+                if abs(span) > 1e-6:
+                    frac = float(np.clip((q_real - q_closed_real) / span, 0.0, 1.0))
+            concept_joint = revolute_joint_for_child(concept_urdf, None)
+            open_concept = {}
+            if concept_joint:
+                lo, hi = joint_limits(concept_urdf, concept_joint)
+                q_closed_c, q_opened_c = _closed_open_limits(lo, hi)
+                live_q_now = float(q_closed_c + frac * (q_opened_c - q_closed_c))
+                open_concept = {concept_joint: live_q_now}
+                apply_joint_pos(my_concept, open_concept, env_id)
+                _refresh_articulation(my_concept)
+            print(
+                f"[{spec.type_name}] live close real {real_jname}={q_real:.3f} "
+                f"frac={frac:.2f} concept={open_concept}"
+            )
+        elif spec.init_open_fraction > 1e-6:
             open_concept = posed_joint_pos(concept_urdf, spec.init_open_fraction, spec.skip_joint_keywords)
-            apply_joint_pos(asset, open_real, env_id)
             apply_joint_pos(my_concept, open_concept, env_id)
-            _refresh_articulation(asset)
             _refresh_articulation(my_concept)
         else:
-            closed_real = posed_joint_pos(self.urdf_path, 0.0, spec.skip_joint_keywords)
             closed_concept = posed_joint_pos(concept_urdf, 0.0, spec.skip_joint_keywords)
-            apply_joint_pos(asset, closed_real, env_id)
             apply_joint_pos(my_concept, closed_concept, env_id)
+            _refresh_articulation(my_concept)
             open_concept = {}
 
         grasp_link = pick_grasp_link(my_concept, concept_urdf, spec.grasp_keywords, index=spec.grasp_index)
@@ -1070,12 +1159,21 @@ class PartNetSkill:
         concept_quat = my_concept.data.root_quat_w[env_id].detach().cpu().numpy()
         real_root = asset.data.root_pos_w[env_id].detach().cpu().numpy()
         real_quat = asset.data.root_quat_w[env_id].detach().cpu().numpy()
-        use_fk = merged or (spec.init_open_fraction > 1e-6 and bool(open_concept))
+        use_fk = (
+            merged
+            or live_state
+            or (spec.init_open_fraction > 1e-6 and bool(open_concept))
+            or spec.plan_from_commanded
+        )
         if use_fk:
+            if open_concept:
+                fk_joints = open_concept
+            else:
+                fk_joints = posed_joint_pos(concept_urdf, 0.0, spec.skip_joint_keywords)
             grasp_concept, _ = fk_link_world_pos(
                 concept_urdf,
                 grasp_link,
-                open_concept if open_concept else {},
+                fk_joints,
                 concept_root,
                 concept_quat,
                 spec.scale,
@@ -1161,10 +1259,25 @@ class PartNetSkill:
                 f"axis=({axis_dir[0]:.3f},{axis_dir[1]:.3f},{axis_dir[2]:.3f})"
             )
         else:
-            parent_pos_w, parent_quat_wxyz = link_parent_pose(my_concept, parent_link or "", env_id)
+            origin_for_axis = np.asarray(origin_local, dtype=np.float64)
+            if spec.plan_from_commanded and parent_link:
+                # Physics body frames are not the URDF link frames, so the pivot
+                # landed on the handle and the arc radius collapsed to a few cm.
+                hinge_joints = posed_joint_pos(concept_urdf, 0.0, spec.skip_joint_keywords)
+                parent_pos_w, parent_quat_wxyz = fk_link_world_pos(
+                    concept_urdf,
+                    parent_link,
+                    hinge_joints,
+                    concept_root,
+                    concept_quat,
+                    spec.scale,
+                )
+                origin_for_axis = origin_for_axis * np.asarray(spec.scale, dtype=np.float64)
+            else:
+                parent_pos_w, parent_quat_wxyz = link_parent_pose(my_concept, parent_link or "", env_id)
 
             axis_point_c, axis_dir_c = transform_joint_axis_to_world(
-                parent_pos_w, parent_quat_wxyz, origin_local, axis_local
+                parent_pos_w, parent_quat_wxyz, origin_for_axis, axis_local
             )
             axis_dir_c = np.asarray(axis_dir_c, dtype=np.float64)
             n = np.linalg.norm(axis_dir_c)
@@ -1289,18 +1402,25 @@ class PartNetSkill:
             motion_pts = slide_pts[1:] if len(slide_pts) > 1 else slide_pts
         else:
             q_now = _read_joint_q(my_concept, joint_name, env_id)
+            if live_q_now is not None:
+                q_now = float(live_q_now)
             if q_now is None:
                 q_now = float(q_opened) if spec.init_open_fraction > 1e-6 else float(q_closed)
-            if swing_delta is not None:
+            if live_state:
+                delta_q = (float(q_closed) - float(q_now)) * json_frac * arc_sign
+            elif swing_delta is not None:
                 delta_q = float(swing_delta) * json_frac * arc_sign
             elif spec.init_open_fraction > 1e-6:
                 delta_q = (float(q_closed) - float(q_now)) * json_frac * arc_sign
             else:
                 delta_q = float(spec.sign) * np.deg2rad(spec.max_deg * json_frac) * arc_sign
             close_deg = abs(float(np.degrees(delta_q)))
-            close_deg = max(close_deg, float(spec.max_deg)) + 10.0
-            step_deg = 5
-            close_deg = max(step_deg, int(round(close_deg / step_deg) * step_deg))
+            step_deg = 10
+            if live_state:
+                close_deg = max(step_deg, int(round(close_deg / step_deg) * step_deg))
+            else:
+                close_deg = max(close_deg, float(spec.max_deg)) + 10.0
+                close_deg = max(step_deg, int(round(close_deg / step_deg) * step_deg))
             axis_close = np.asarray(axis_dir, dtype=np.float64)
             if float(delta_q) < 0.0:
                 axis_close = -axis_close
@@ -1336,4 +1456,16 @@ class PartNetSkill:
         if (not spec.stop_at_grasp) and abs(float(spec.retreat_z)) > 1e-6:
             retreat_xyz = last + r_hand.apply([0.0, 0.0, spec.retreat_z])
             pack.append(wp(retreat_xyz, q_hand, "open", executor))
+        if live_state:
+            pack = repose_waypoints(
+                pack,
+                real_root,
+                real_quat,
+                self.q_obj_world_wxyz,
+                getattr(self, "_real_spawn_z", None),
+            )
+            print(
+                f"[{spec.type_name}] close reposed onto live root "
+                f"xyz={[round(float(v), 3) for v in real_root]}"
+            )
         return pack

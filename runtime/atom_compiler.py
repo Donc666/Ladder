@@ -24,6 +24,19 @@ def _simultaneous_arms(waypoints: list[dict]) -> tuple[bool, bool]:
     return left, right
 
 
+def _all_simultaneous_named(atomic_plan: list[dict], start: int, end_inclusive: int) -> bool:
+    """True when every step in the span is itself a simultaneous atom.
+
+    A place step between two dual-picks must stay in order. The can packer
+    would otherwise jump the end index past that place and never run it.
+    """
+    for i in range(start, end_inclusive + 1):
+        atom = str(atomic_plan[i].get("atom") or "").lower()
+        if "simultan" not in atom:
+            return False
+    return True
+
+
 def _find_can_sync_indices(atomic_plan: list[dict]) -> tuple[int | None, int | None]:
     """Plan indices of can_1/left and can_2/right, or (None, None)."""
     left_i = None
@@ -36,6 +49,24 @@ def _find_can_sync_indices(atomic_plan: list[dict]) -> tuple[int | None, int | N
         if asset == "can_2" and "right" in atom:
             right_i = i
     return left_i, right_i
+
+
+def _parallel_id(step: dict) -> str | None:
+    value = step.get("parallel")
+    if value is None or value == "":
+        return None
+    return str(value)
+
+
+def _retag_simultaneous(waypoints: list[dict]) -> list[dict]:
+    """Map robot_left/right onto the executors split_pose_pack actually reads."""
+    out = []
+    for wp in waypoints:
+        item = dict(wp)
+        ex = str(item.get("executor", "robot_right"))
+        item["executor"] = "simultaneous_left" if "left" in ex else "simultaneous_right"
+        out.append(item)
+    return out
 
 
 def _annotate(waypoints: list[dict], asset_id: str, atom: str, atom_index: int) -> list[dict]:
@@ -118,6 +149,20 @@ class AtomCompiler:
             return []
         if not isinstance(seg, list):
             seg = [seg]
+        pos_tol = getattr(obj, "plan_position_tolerance", None)
+        reach = getattr(obj, "reach_threshold", None)
+        if pos_tol is not None or reach is not None:
+            for wp in seg:
+                if not isinstance(wp, dict):
+                    continue
+                if pos_tol is not None:
+                    wp["position_tolerance"] = float(pos_tol)
+                if reach is not None:
+                    wp["reach_threshold"] = float(reach)
+        if getattr(obj, "marker_per_waypoint", False):
+            for wp in seg:
+                if isinstance(wp, dict):
+                    wp["marker_per_waypoint"] = True
         return _annotate(seg, asset_id=asset_id, atom=atom, atom_index=atom_index)
 
     def _compile_independent_until_cans(
@@ -180,6 +225,49 @@ class AtomCompiler:
             grouped_assets=grouped,
         )
 
+    def _compile_parallel_group(
+        self,
+        atomic_plan: list[dict],
+        start_index: int,
+        scene: Any,
+        *,
+        parallel: str,
+        use_live_poses: bool,
+        skip: set[int],
+    ) -> CompiledAtom:
+        """Run every step that shares `parallel` on both arms at once.
+
+        Left waypoints stay in plan order on the left arm, and right waypoints
+        stay in plan order on the right arm. The two lists advance together.
+        """
+        pack: list[dict] = []
+        grouped: list[str] = []
+        end = start_index
+        while end < len(atomic_plan) and _parallel_id(atomic_plan[end]) == parallel:
+            if end not in skip:
+                step = atomic_plan[end]
+                seg = self.compile_step(step, scene, end, use_live_poses=use_live_poses)
+                if seg:
+                    pack.extend(_retag_simultaneous(seg))
+                    aid = str(step.get("asset") or "")
+                    if aid:
+                        grouped.append(aid)
+            end += 1
+        first = atomic_plan[start_index]
+        print(
+            f"[AtomCompiler] parallel '{parallel}' "
+            f"steps {start_index}:{end} assets={','.join(grouped) or '-'}"
+        )
+        return CompiledAtom(
+            start_index=start_index,
+            end_index=end,
+            asset_id=str(first.get("asset") or ""),
+            atom=str(first.get("atom") or ""),
+            waypoints=pack,
+            simultaneous=True,
+            grouped_assets=grouped,
+        )
+
     def compile_group(
         self,
         atomic_plan: list[dict],
@@ -206,11 +294,22 @@ class AtomCompiler:
                 simultaneous=False,
                 grouped_assets=[],
             )
+        parallel = _parallel_id(atomic_plan[start_index])
+        if parallel is not None:
+            return self._compile_parallel_group(
+                atomic_plan,
+                start_index,
+                scene,
+                parallel=parallel,
+                use_live_poses=use_live_poses,
+                skip=skip,
+            )
         left_sync, right_sync = _find_can_sync_indices(atomic_plan)
         if (
             left_sync is not None
             and right_sync is not None
             and start_index <= min(left_sync, right_sync)
+            and _all_simultaneous_named(atomic_plan, start_index, max(left_sync, right_sync))
         ):
             return self._compile_independent_until_cans(
                 atomic_plan,

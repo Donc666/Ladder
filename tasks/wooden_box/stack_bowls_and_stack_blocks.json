@@ -1,0 +1,70 @@
+{
+  "task_name": "stack_bowls_and_stack_blocks",
+  "assets": [
+    {
+      "id": "bowl_1",
+      "type": "bowl",
+      "asset_kind": "auto",
+      "stack_place": [0.5, -0.15]
+    },
+    {
+      "id": "bowl_2",
+      "type": "bowl",
+      "asset_kind": "auto",
+      "stack_place": [0.5, -0.15]
+    },
+    {
+      "id": "block_1",
+      "type": "block",
+      "asset_kind": "auto",
+      "stack_place": [0.5, 0.15]
+    },
+    {
+      "id": "block_2",
+      "type": "block",
+      "asset_kind": "auto",
+      "stack_place": [0.5, 0.15]
+    },
+    {
+      "id": "woodenbox_1",
+      "type": "woodenbox",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "woodenbox_2",
+      "type": "woodenbox",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bowl_1",
+      "atom": "stack_bottom",
+      "params": {},
+      "parallel": "arms"
+    },
+    {
+      "asset": "bowl_2",
+      "atom": "stack_middle",
+      "params": {},
+      "parallel": "arms"
+    },
+    {
+      "asset": "block_1",
+      "atom": "stack_bottom",
+      "params": {},
+      "parallel": "arms"
+    },
+    {
+      "asset": "block_2",
+      "atom": "stack_middle",
+      "params": {},
+      "parallel": "arms"
+    }
+  ]
+}

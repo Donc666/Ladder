@@ -1,0 +1,47 @@
+{
+  "task_name": "open_cabinet_and_put_object_in",
+  "assets": [
+    {
+      "id": "cabinet_1",
+      "type": "cabinet",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "cabinet_concept_1",
+      "type": "cabinet_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "rubikscube_1",
+      "type": "rubikscube",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "cabinet_1",
+      "atom": "open",
+      "params": {}
+    },
+    {
+      "asset": "rubikscube_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "cabinet_1",
+      "atom": "into",
+      "params": {}
+    },
+    {
+      "asset": "cabinet_1",
+      "atom": "close",
+      "params": {}
+    }
+  ]
+}

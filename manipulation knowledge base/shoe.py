@@ -154,7 +154,7 @@ class shoe ():
                     q_hand_world_xyzw = r_hand_world.as_quat()
                     hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
                     pos_w = [x,y,z]
-                    dx = np.random.uniform(-0.03,0.03)
+                    dx = np.random.uniform(-0.01,0.01)
                     pos1 = pos_w - hand_to_world_rot.apply([dx,0,0.0])
                     pos_contact = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
                     q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)  
@@ -211,7 +211,7 @@ class shoe ():
                     q_hand_world_xyzw = r_hand_world.as_quat()
                     hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
                     pos_w = [x,y,z]
-                    dx = np.random.uniform(-0.03,0.03)
+                    dx = np.random.uniform(-0.01,0.01)
                     pos1 = pos_w - hand_to_world_rot.apply([dx,0,0.0])
                     pos_contact = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
                     q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)    

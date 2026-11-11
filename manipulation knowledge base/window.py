@@ -61,6 +61,26 @@ def _open_signed_distance(urdf_path: str, joint_name: str, fraction: float, scal
     return float(delta) * float(scale)
 
 
+def _joints_at_open_fraction(urdf_path: str, base: dict[str, float], fraction: float) -> dict[str, float]:
+    """Move each sliding/hinge joint from the closed end by ``fraction`` of its travel."""
+    pos = dict(base)
+    frac = float(np.clip(fraction, 0.05, 1.0))
+    try:
+        root = ET.parse(urdf_path).getroot()
+    except Exception:
+        return pos
+    for joint in root.findall("joint"):
+        jtype = (joint.attrib.get("type") or "").lower()
+        name = joint.attrib.get("name")
+        if jtype not in {"revolute", "prismatic"} or not name:
+            continue
+        lo, hi = _joint_limits(urdf_path, name)
+        span = hi - lo
+        delta = frac * span if abs(lo) <= abs(hi) else -frac * span
+        pos[name] = float(min(hi, max(lo, delta)))
+    return pos
+
+
 def _safe_default_joint_pos(urdf_path: str) -> dict[str, float]:
     """Isaac Lab rejects default 0 when 0 is outside URDF joint limits."""
     pos: dict[str, float] = {}
@@ -101,6 +121,18 @@ def _pick_slider_link(asset, preferred: str | None):
         if name.lower() not in {"base", "world"}:
             return name
     raise RuntimeError(f"No slider link in body_names={names}")
+
+
+def _map_window_point(point_w, concept_root, real_root):
+    """Copy a concept-world point onto the real window.
+
+    The concept root is yawed and lowered so the mesh matches the PartNet
+    window. The URDF frame origin still sits 0.25 m above that root, so the
+    offset's extra height is removed before the point is placed on the real root.
+    """
+    offset = np.asarray(point_w, dtype=np.float64) - np.asarray(concept_root, dtype=np.float64)
+    offset[2] -= float(window_concept_mod._CONCEPT_FRAME_LIFT)
+    return np.asarray(real_root, dtype=np.float64) + offset
 
 
 def _pick_handle_link(asset, urdf_path: str) -> str:
@@ -163,8 +195,9 @@ class window:
         self.num_envs = num_envs
         self.urdf_path = urdf_path
         self.scene_key = instance_name
-        x1, y1 = np.random.uniform(0.6,0.8), 0.0
-        r_z = R.from_euler("z", random_degree2, degrees=True)
+        # Real window stays here. The concept is parked at (1000, 1000).
+        x1, y1, z1 = window_concept_mod.WINDOW_SPAWN_XYZ
+        r_z = R.from_euler("z", float(random_degree), degrees=True)
         self.q_obj_world_wxyz = xyzw_to_wxyz(r_z.as_quat())
         resolved_concept_urdf, model_id = resolve_concept_urdf_path(
             source_urdf_path=urdf_path,
@@ -174,10 +207,17 @@ class window:
         )
         self.concept_urdf_path = window_concept_mod.CONCEPT_URDF_PATH or resolved_concept_urdf
         joint_pos = _safe_default_joint_pos(urdf_path)
+        open_frac = getattr(self, "spawn_open_fraction", None)
+        if open_frac:
+            joint_pos = _joints_at_open_fraction(urdf_path, joint_pos, float(open_frac))
+            print(f"[window] spawn open fraction={float(open_frac):.2f} joint_pos={joint_pos}")
         self.joint_pos = joint_pos
         if joint_pos:
             print(f"[window] default joint_pos within limits: {joint_pos}")
-        print(f"[window] spawn PartNet urdf={urdf_path} model_id={model_id} pos=({x1:.2f},{y1:.2f},0.50) scale={self.scale}")
+        print(
+            f"[window] spawn PartNet urdf={urdf_path} model_id={model_id} "
+            f"pos=({x1:.2f},{y1:.2f},{z1:.2f}) yaw={float(random_degree):.1f} scale={self.scale}"
+        )
         cfgs = []
         for _env_id in range(num_envs):
             cfgs.append(
@@ -185,7 +225,7 @@ class window:
                     fix_base=True,
                     name=self.scene_key,
                     urdf_path=urdf_path,
-                    pos=(x1, y1, 0.50),
+                    pos=(x1, y1, z1),
                     rot=self.q_obj_world_wxyz,
                     scale=self.scale,
                     asset_kind="articulation",
@@ -239,7 +279,11 @@ class window:
         )
         real_root_pos = asset.data.root_pos_w[env_id].detach().cpu().numpy()
         concept_root_pos = my_concept.data.root_pos_w[env_id].detach().cpu().numpy()
-        handle_pos = map_concept_point_to_real_xy(handle_pos_concept, concept_root_pos, real_root_pos)
+        handle_pos = np.asarray(
+            map_concept_point_to_real_xy(handle_pos_concept, concept_root_pos, real_root_pos),
+            dtype=np.float64,
+        )
+        handle_pos = handle_pos - planner_env_origin(scene, env_id)
 
         body_names = list(my_concept.body_names)
         if parent_link in body_names:
@@ -272,16 +316,17 @@ class window:
         q_hand_world_wxyz = rotate_y(q_hand_world_wxyz,-90)
         q_hand_world_wxyz = rotate_x(q_hand_world_wxyz,-90)
 
-        grasp = np.array([x1, y1, z1], dtype=np.float64)
+        r_hand_final = R.from_quat(wxyz_to_xyzw(q_hand_world_wxyz))
+        grasp = np.array([x1, y1, z1 - 0.01], dtype=np.float64) + r_hand_final.apply([0.0, 0.0, -0.08])
         frac = float(np.clip(fraction, 0.05, 1.0))
-        distance = _open_signed_distance(concept_urdf, joint_name, frac, self.scale[0]) * 0.2
+        signed = _open_signed_distance(concept_urdf, joint_name, frac, self.scale[0])
+        distance = float(np.copysign(0.19, signed if abs(signed) > 1e-8 else -1.0))
         print(f"[window] slide distance={distance:.3f} m")
         slide_pts = generate_prismatic_points(grasp, axis_dir_real, distance, steps=4)
         open_pts = slide_pts[1:] if len(slide_pts) > 1 else slide_pts
 
-        r_hand_final = R.from_quat(wxyz_to_xyzw(q_hand_world_wxyz))
         approach_xyz = grasp + r_hand_final.apply([0, 0.0, -0.25])
-        handle_xyz = grasp + r_hand_final.apply([0, 0.0, -0.1])
+        handle_xyz = grasp
         pose_approach = [
             float(approach_xyz[0]),
             float(approach_xyz[1]),
@@ -325,3 +370,16 @@ class window:
             # {"pose": pose_retreat, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
         ]
         return pose_pack
+
+    def close(self, scene, env_id: int = 0, fraction: float = 0.5):
+        """Slide the sash shut along the open path, with the left arm."""
+        pack = self.open(scene, env_id, fraction=fraction)
+        if not pack:
+            return pack
+        closed = []
+        for wp in reversed(pack):
+            step = dict(wp)
+            step["executor"] = "robot_left"
+            closed.append(step)
+        print(f"[window] close reverses open on robot_left, waypoints={len(closed)}")
+        return closed

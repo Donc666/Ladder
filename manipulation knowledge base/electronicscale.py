@@ -2,11 +2,11 @@ from my_utils import *
 from set_interface_try import *
 import random
 ZONES = [
-    ((0.40, 0.6), (-0.1, 0.1)),  # zone 0
+    ((0.40, 0.8), (-0.05, 0.05)),  # zone 0
 
 ]
 target_pos_x = np.random.uniform(0.4,0.5)
-target_pos_y = np.random.uniform(-0.2,0.2)
+target_pos_y = np.random.uniform(-0.05,0.05)
 target_pos_z = 0.3 
 
 
@@ -134,11 +134,11 @@ class electronicscale ():
             else:
                 executor = "robot_right"
             pose = [
-                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
+                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
               
     
             ]

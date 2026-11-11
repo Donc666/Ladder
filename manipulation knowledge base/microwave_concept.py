@@ -6,7 +6,7 @@ from microwave import random_degree
 
 class microwave_concept ():
     def __init__(self,):
-        self.scale_micwave = (0.2,0.35,0.2)
+        self.scale_micwave = (0.3,0.525,0.3)
         self.concept_urdf_path = None
         self.hand_rot = None
         pass

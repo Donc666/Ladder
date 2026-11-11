@@ -5,7 +5,7 @@ import random
 ZONES = [
     ((0.52, 0.525), (-0.35, -0.355)),  # zone 0
     ((0.75, 0.85), (0.1, 0.2)),  # zone 1
-    ((0.75, 0.85), (-0.5, -0.10)), 
+    ((0.75, 0.85), (-0.5, -0.10)),
 ]
 target_pos_x = np.random.uniform(0.4,0.5)
 target_pos_y = np.random.uniform(-0.2,0.2)
@@ -73,7 +73,7 @@ class bottle ():
             fix_base=False,
             name = instance_name,
             urdf_path=urdf_path,
-            pos = (x1, y1, 0.32),
+            pos = (x1, y1, 0.33),
             rot = self.q_obj_world_wxyz,
             scale = self.scale,
             stiffness=0.0,
@@ -278,8 +278,8 @@ class bottle ():
             # self.hand_rot,_ = rotate_z(list(self.hand_rot),self.angel_degree)
 
             pose1= [x-0.2,y,z + dz,0.707, 0, 0.707, 0]
-            pose2 = [x-0.09,y,z + dz,0.707, 0, 0.707, 0]
-            pose3 = [x-0.09,y,z+0.3,0.707, 0, 0.707, 0]
+            pose2 = [x-0.07,y,z + dz,0.707, 0, 0.707, 0]
+            pose3 = [x-0.07,y,z+0.3,0.707, 0, 0.707, 0]
 
 
 
@@ -343,25 +343,19 @@ class bottle ():
             x, y, z = self._live_root(scene, envid)
         
 
-            height_range=(0.07, 0.08)
-            dz = np.random.uniform(*height_range)
-
             target_pos_x = 0.5
             target_pos_y = 0
             target_pos_z = z+0.3
-            # self.hand_rot,_ = rotate_z(list(self.hand_rot),self.angel_degree)
+            # Already closed by pick. Stay on the grasp and only tilt.
             rot1,_= rotate_z(current_quat=[0.707, 0, 0.707, 0],angle_deg=90)
             rot2,_= rotate_z(current_quat=[0.707, 0, 0.707, 0],angle_deg=75)
             rot3,_= rotate_z(current_quat=[0.707, 0, 0.707, 0],angle_deg=105)
 
-            pose1= [x-0.25,y,z + dz,0.707, 0, 0.707, 0]
-            pose2 = [x-0.07,y,z + dz,0.707, 0, 0.707, 0]
-            pose3 = [x-0.07,y,z+0.3,rot1[0], rot1[1],rot1[2],rot1[3]]
-            pose4 = [x-0.07,y,z+0.4,rot2[0],rot2[1],rot2[2], rot2[3]]
-            pose5 = [x-0.07,y,z+0.2,rot3[0],rot3[1],rot3[2], rot3[3]]
-            pose6 = [x-0.07,y,z+0.2,0.707, 0, 0.707, 0]
-            pose7 = [x-0.07,y,z+0.2,0.707, 0, 0.707, 0]
-        
+            pose1 = [x-0.07,y,z+0.3,rot1[0], rot1[1],rot1[2],rot1[3]]
+            pose2 = [x-0.07,y,z+0.4,rot2[0],rot2[1],rot2[2], rot2[3]]
+            pose3 = [x-0.07,y,z+0.3,rot3[0],rot3[1],rot3[2], rot3[3]]
+            pose4 = [x-0.07,y,z+0.3,0.707, 0, 0.707, 0]
+            pose5 = [x-0.07,y,z+0.3,0.707, 0, 0.707, 0]
 
 
 
@@ -370,13 +364,11 @@ class bottle ():
             else:
                 executor = "robot_left"
             pose = [
-                {"pose":pose1,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose2,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose3,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose4,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose5,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose6,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose7,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 
     
             ]

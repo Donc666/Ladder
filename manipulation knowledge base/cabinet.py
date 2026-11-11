@@ -1,7 +1,7 @@
 from my_utils import *
 from set_interface_try import *
 import random
-from cabinet_concept import random_degree
+from cabinet_concept import CABINET_SPAWN_XYZ, closed_drawer_joint_pos, random_degree
 ZONES = [
     ((0.7, 0.85), (-0.2, -0.1)),  # zone 0
 
@@ -26,6 +26,20 @@ def sample_pos_by_instance(instance_name: str):
     x = random.uniform(*xr)
     y = random.uniform(*yr)
     return x, y
+
+
+def _pick_door_link(asset) -> str:
+    """46653 has Regular_drawer_id0/1/2 and no door. Prefer a door when one exists."""
+    names = list(asset.body_names)
+    for prefer in ("Regular_door_id0", "Regular_drawer_id0"):
+        if prefer in names:
+            return prefer
+    movable = sorted(n for n in names if "door" in n.lower() or "drawer" in n.lower())
+    if not movable:
+        raise RuntimeError(f"cabinet concept has no door or drawer link, bodies={names}")
+    return movable[0]
+
+
 class cabinet ():
     def __init__(self):
         self.scale = (0.3,0.3,0.3)
@@ -40,7 +54,7 @@ class cabinet ():
         self.num_envs = num_envs
         self.angle_degree = random_degree
         print(f"the value of angle_degree{self.angle_degree} ")
-        x1, y1 = sample_pos_by_instance(instance_name)  # 或你自己的分区函数
+        x1, y1, z1 = CABINET_SPAWN_XYZ
         r_z = R.from_euler("z", self.angle_degree, degrees=True)
         r_x = R.from_euler("x", 0, degrees=True) 
         self.q_obj_world_wxyz = xyzw_to_wxyz((r_z * r_x).as_quat())
@@ -59,17 +73,18 @@ class cabinet ():
             fix_base=True,
             name=self.scene_key,
             urdf_path=urdf_path,
-            pos=(x1, y1, 0.60),
+            pos=(x1, y1, z1),
             rot=self.q_obj_world_wxyz,
             scale=self.scale,
             asset_kind = "articulation",
             stiffness=0.0,
-            damping=1.0,
+            damping=4.0,
             static_friction=0.8,
             dynamic_friction=0.8,
             restitution=0.0,
             compliant_contact_damping=0.0,
             compliant_contact_stiffness=0.0,
+            joint_pos=closed_drawer_joint_pos(urdf_path),
             # joint_pos = {"joint_1": -0.8},
         )
         # 3) concept urdf 
@@ -99,10 +114,16 @@ class cabinet ():
             real_root_pos = microwave_asset.data.root_pos_w[0].detach().cpu().numpy()
             concept_root_pos = my_concept.data.root_pos_w[0].detach().cpu().numpy()
 
+            door_link = _pick_door_link(my_concept)
+            print(f"[cabinet] link={door_link} bodies={list(my_concept.body_names)}")
             screen_pos, screen_quat = get_link_pose_physics(
-                my_concept, link_name="Regular_drawer_id2", env_id=envid
+                my_concept, link_name=door_link, env_id=envid
             )
-            h_pos_real = map_concept_point_to_real_xy(screen_pos, concept_root_pos, real_root_pos)
+            h_pos_real = np.asarray(
+                map_concept_point_to_real_xy(screen_pos, concept_root_pos, real_root_pos),
+                dtype=np.float64,
+            )
+            h_pos_real = h_pos_real - planner_env_origin(scene, envid)
             finger_length = 0.05
             print(f"the handle pose:{h_pos_real}")
             x1 = h_pos_real[0] - finger_length
@@ -124,9 +145,12 @@ class cabinet ():
             q_hand_world_xyzw = r_hand_world.as_quat()
             hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
             pos_w = [x1,y1,z1]
-            pos1 = pos_w - hand_to_world_rot.apply([0.0,0.0,0.25])
-            pos2 = pos_w - hand_to_world_rot.apply([0.0,0,0.17])
-            pos3 = pos_w - hand_to_world_rot.apply([0.0,0,0.4])
+            # Hand +Z points into the cabinet (+X). A larger offset puts the pre-grasp farther out, toward the arm.
+            pos1 = pos_w - hand_to_world_rot.apply([0.0,0.0,0.40])
+            # Grasp sits 10 mm back from the original handle offset, away from the cabinet.
+            pos2 = pos_w - hand_to_world_rot.apply([0.0,0,0.21])
+            pos4 = pos_w - hand_to_world_rot.apply([0.0,0,0.25])
+            pos3 = pos_w - hand_to_world_rot.apply([0.0,0,0.410])
             q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
 
 
@@ -134,33 +158,69 @@ class cabinet ():
 
     
 
-            pose1 = [pos1[0], pos1[1], z1-0.15, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos2[0], pos2[1],z1-0.15, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos3[0], pos3[1],z1-0.15, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [pos3[0], pos3[1],z1-0.15, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            open_z = z1 - 0.12
+            grasp_z = open_z 
+            q = q_hand_world_wxyz
+            pose1 = [pos1[0], pos1[1], grasp_z, q[0], q[1], q[2], q[3]]
+            pose2 = [pos2[0] + 0.05, pos2[1], grasp_z, q[0], q[1], q[2], q[3]]
+            pose = [pos4[0] + 0.05, pos4[1], grasp_z, q[0], q[1], q[2], q[3]]
+            pose3 = [pos3[0] + 0.05, pos3[1], grasp_z, q[0], q[1], q[2], q[3]]
+            pose4 = [pos3[0] + 0.05, pos3[1], grasp_z, q[0], q[1], q[2], q[3]]
+            # After the drawer is open: release, back away 0.17 m, then lift 0.3 m.
+            retreat = np.asarray(pose4[:3], dtype=np.float64) - hand_to_world_rot.apply([0.0, 0.0, 0.17])
+            pose5 = [float(retreat[0]), float(retreat[1]), open_z, q[0], q[1], q[2], q[3]]
+            pose6 = [float(retreat[0]), float(retreat[1]), open_z + 0.3, q[0], q[1], q[2], q[3]]
             # pose3 = [x1,0.35,0.45,0.707, 0, 0.707, 0]
             # pose4 = [x1,0.45,0.45,0.707, 0, 0.707, 0]
             # pose5 = [0.30,0.5,0.45,0.707, 0, 0.707, 0]
             # pose6 = [0.25,0.5,0.45,0.707, 0, 0.707, 0]
             
             
-            executor = "robot_left"
+            executor = "robot_right" if float(real_root_pos[1]) < 0 else "robot_left"
+            print(f"[cabinet] open executor={executor} cabinet_y={float(real_root_pos[1]):.3f}")
 
     
             pose_pack = [
                 {"pose": pose1, "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose, "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
                 {"pose": pose2,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
+                # Close on the grasp pose and hold there before the pull.
+                {"pose": pose2,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose": pose3,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose": pose4,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
-               
-                # {"pose":pose4,"gripper":"close","use_obstacle_avoidance": True,"executor":"robot_left"},
-                # {"pose":pose5,"gripper":"close","use_obstacle_avoidance": True,"executor":"robot_left"},
-                # {"pose":pose6,"gripper":"close","use_obstacle_avoidance": True,"executor":"robot_left"}
+                {"pose": pose4,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose5,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose6,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
             ]        
             return pose_pack
 
+    def close(self, scene, env_id):
+        """Shut the drawer by replaying the open waypoints in reverse. The first two waypoints keep the gripper open."""
+        pack = self.open(scene, env_id)
+        if not pack:
+            return pack
+        closed = []
+        for wp in reversed(pack):
+            step = dict(wp)
+            step["gripper"] = "close"
+            closed.append(step)
+        for step in closed[:2]:
+            step["gripper"] = "open"
+        # The push finishes on the open grasp pose. Bring that goal 0.02 m
+        # toward the cabinet along hand +Z. Open itself is unchanged.
+        grasp_xyz = np.asarray(pack[1]["pose"][:3], dtype=np.float64)
+        quat = pack[1]["pose"][3:7]
+        into = R.from_quat(wxyz_to_xyzw(quat)).apply([0.0, 0.0, 0.02])
+        for step in closed:
+            xyz = np.asarray(step["pose"][:3], dtype=np.float64)
+            if np.allclose(xyz, grasp_xyz, atol=1e-6):
+                nearer = xyz + into
+                step["pose"] = [float(nearer[0]), float(nearer[1]), float(nearer[2]), *step["pose"][3:7]]
+        print(f"[cabinet] close reverses open, first 2 waypoints gripper=open, waypoints={len(closed)}")
+        return closed
 
-    def into(self,scene,env_id):
+
+    def into(self, scene, env_id):
 
         for envid in range(self.num_envs):
             self.actual_instance_name = f"{self.scene_key}__env{envid}" 
@@ -169,10 +229,16 @@ class cabinet ():
             real_root_pos = microwave_asset.data.root_pos_w[0].detach().cpu().numpy()
             concept_root_pos = my_concept.data.root_pos_w[0].detach().cpu().numpy()
 
+            door_link = _pick_door_link(my_concept)
+            print(f"[cabinet] link={door_link} bodies={list(my_concept.body_names)}")
             screen_pos, screen_quat = get_link_pose_physics(
-                my_concept, link_name="Regular_drawer_id2", env_id=envid
+                my_concept, link_name=door_link, env_id=envid
             )
-            h_pos_real = map_concept_point_to_real_xy(screen_pos, concept_root_pos, real_root_pos)
+            h_pos_real = np.asarray(
+                map_concept_point_to_real_xy(screen_pos, concept_root_pos, real_root_pos),
+                dtype=np.float64,
+            )
+            h_pos_real = h_pos_real - planner_env_origin(scene, envid)
             finger_length = 0.05
             print(f"the handle pose:{h_pos_real}")
             x1 = h_pos_real[0] - finger_length
@@ -206,9 +272,11 @@ class cabinet ():
 
     
 
-            pose1 = [pos1[0], pos1[1], z1+0.1, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos1[0], pos2[1],z1+0.1, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos1[0], pos2[1],z1+0.1, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1 = [pos1[0]-0.04, pos1[1], z1+0.18, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos1[0]-0.04, pos2[1],z1+0.18, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos1[0]-0.04, pos2[1],z1+0.18, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose4 = [pos1[0]-0.04, pos2[1],z1+0.07, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose5 = [pos1[0]-0.04, pos2[1],z1+0.18, q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             
 
             # pose3 = [x1,0.35,0.45,0.707, 0, 0.707, 0]
@@ -217,12 +285,15 @@ class cabinet ():
             # pose6 = [0.25,0.5,0.45,0.707, 0, 0.707, 0]
             
 
-            executor = "robot_right"
+            executor = "robot_right" if float(real_root_pos[1]) < 0 else "robot_left"
+            print(f"[cabinet] into executor={executor} cabinet_y={float(real_root_pos[1]):.3f}")
     
             pose_pack = [
                 {"pose": pose1, "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose": pose2,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose": pose3,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose2,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose3,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose4,     "gripper": "close","use_obstacle_avoidance": False,"executor":executor},
+                {"pose": pose5,     "gripper": "open","use_obstacle_avoidance": False,"executor":executor},
     
                
                 # {"pose":pose4,"gripper":"close","use_obstacle_avoidance": True,"executor":"robot_left"},

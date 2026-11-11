@@ -2,11 +2,11 @@ from my_utils import *
 from set_interface_try import *
 import random
 ZONES = [
-    ((0.40, 0.5), (-0.45, -0.0)),  # zone 0
+    ((0.40, 0.7), (-0.45, -0.25)),  # zone 0
 
 ]
-target_pos_x = np.random.uniform(0.4,0.5)
-target_pos_y = np.random.uniform(-0.2,0.2)
+target_pos_x = np.random.uniform(0.4,0.7)
+target_pos_y = np.random.uniform(-0.2,-0.35)
 target_pos_z = 0.3 
 
 
@@ -27,7 +27,7 @@ def sample_pos_by_instance(instance_name: str):
     return x, y
 class phone ():
     def __init__(self):
-        self.scale = (0.04,0.04,0.04)
+        self.scale = (0.03,0.04,0.045)
         pass
 
     def import2sim(
@@ -56,6 +56,7 @@ class phone ():
                 pos = (x1, y1, 0.35),
                 rot = self.q_obj_world_wxyz,
                 scale = self.scale,
+                mass=0.05,
                 stiffness=0.0,
                 damping=0.0,
                 fix_base= False,
@@ -68,10 +69,10 @@ class phone ():
                 # roughness=0.5,
                 metallic=0.9,
                 # opacity=1,
-                static_friction=0.8,
-                dynamic_friction= 0.8,
+                static_friction=1.0,
+                dynamic_friction= 1.0,
                 restitution= 0,
-                compliant_contact_damping=0,
+                compliant_contact_damping=0.0,
                 compliant_contact_stiffness=0
             ))
             self.scene_keys_by_env[env_id] = name_env

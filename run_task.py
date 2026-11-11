@@ -21,6 +21,7 @@ PhysX. This helps perform parallelized computation of the inverse kinematics.
 # wp.init()
 import argparse
 import re
+import time
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -49,12 +50,53 @@ parser.add_argument(
     help="Turn off drop test and live end-effector pose together.",
 )
 parser.set_defaults(anti_interference=False)
+parser.add_argument(
+    "--record",
+    action="store_true",
+    help="Record the parquet dataset and export episode videos. Off by default.",
+)
+parser.add_argument(
+    "--max_frames",
+    type=int,
+    default=0,
+    help="Stop after this many simulation frames and save the video. 0 keeps running.",
+)
+parser.add_argument(
+    "--max_seconds",
+    type=int,
+    default=0,
+    help="Stop this run after this many seconds from process start, then save. 0 keeps running.",
+)
+parser.add_argument(
+    "--dataset_root",
+    type=str,
+    default="",
+    help="LeRobot folder for env_0, the environment with green markers. Default: data/.",
+)
+parser.add_argument(
+    "--dataset_root_env1",
+    type=str,
+    default="",
+    help="LeRobot folder for env_1, the environment without markers. Default: the same folder as env_0.",
+)
+parser.add_argument(
+    "--episode_index",
+    type=int,
+    default=0,
+    help="Episode number written for this run. env_1 uses the same number when it has its own folder.",
+)
+parser.add_argument(
+    "--preview_dir",
+    type=str,
+    default="",
+    help="If set, save the last third-person frame of each env here.",
+)
 parser.add_argument("--urdf_path", type=str, default="", help="Optional URDF path override.")
 parser.add_argument(
     "--task",
     type=str,
     default="",
-    help="Task name. Loads tasks/rigid or tasks/articulated/<name>.json. Accepts a name with or without .json, or a json path. Default: tasks/rigid/task_plan.json.",
+    help="Task name. Loads tasks/wooden_box, tasks/rigid, or tasks/articulated/<name>.json. Accepts a name with or without .json, or a json path. Default: tasks/rigid/task_plan.json.",
 )
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -106,11 +148,13 @@ from microwave import *
 from dispenser import *
 from auto_collect_data import *
 from collect_data_utils import *
+from collect_data_utils import _copy_camera_rgb
 from task_executor import *
 from runtime.world_state import WorldState
 from runtime.atom_compiler import AtomCompiler
 from runtime.grasp_monitor import GraspMonitorCfg
 from runtime.task_runtime import TaskRuntime, TaskRuntimeCfg
+from runtime.scene_markers import ScenePlanMarkers
 
 # Star-imports (my_utils via auto_collect_data) must not replace this with a .py path.
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -819,6 +863,33 @@ def hide_kitchen_ceiling(stage) -> list[str]:
     return hidden
 
 
+def hide_oven_collision_visuals(stage) -> int:
+    """Keep oven collision hulls for physics, but do not draw them.
+
+    The fine hulls sit on the same surface as the shell. Drawing both makes the
+    pixels flicker. Visibility does not turn off PhysX.
+    """
+    envs = stage.GetPrimAtPath("/World/envs")
+    if not envs.IsValid():
+        return 0
+    hidden = 0
+    for env in envs.GetChildren():
+        for child in env.GetChildren():
+            if "oven" not in child.GetName().lower():
+                continue
+            for prim in Usd.PrimRange(child, Usd.TraverseInstanceProxies()):
+                if prim.GetName().lower() not in _COLLISION_GROUP_NAMES:
+                    continue
+                imageable = UsdGeom.Imageable(prim)
+                if not imageable:
+                    continue
+                imageable.MakeInvisible()
+                hidden += 1
+    if hidden:
+        print(f"[oven] hid {hidden} collision groups from the render")
+    return hidden
+
+
 def prepare_kitchen_backdrop(stage, offset=KITCHEN_ISLAND_OFFSET, kitchen_layout: bool = True) -> None:
     """Keep the room as visuals only. Call again after sim.reset(), which recooks PhysX."""
     kitchen = stage.GetPrimAtPath("/World/Kitchen")
@@ -833,7 +904,7 @@ def prepare_kitchen_backdrop(stage, offset=KITCHEN_ISLAND_OFFSET, kitchen_layout
         offset_kitchen_island(stage, offset)
 
 
-VIEW_CAMERA_EYE = (0.4, -1.0, 0.75)
+VIEW_CAMERA_EYE = (1.8, 0.0, 0.75)
 VIEW_CAMERA_TARGET = (0.6, 0.0, 0.5)
 
 
@@ -919,7 +990,7 @@ class TableTopSceneCfg(InteractiveSceneCfg):
         clipping_range=(0.01, 50.0),
     ),
     offset=CameraCfg.OffsetCfg(
-        pos=(-0.1, 0.4, 1.2),            # 你可调整
+        pos=(-0.3, 0.4, 1.6),            # 你可调整
         rot=(0.9063, 0.0, 0.4226, 0.0),  # 略向下看，wxyz
         convention="world",
     ),
@@ -938,10 +1009,9 @@ class TableTopSceneCfg(InteractiveSceneCfg):
         clipping_range=(0.01, 50.0),
     ),
     offset=CameraCfg.OffsetCfg(
-        #for dustbin
-        # pos=(2.0, 0.2, 0.7),  
-        pos=(1.95, 0.0, 0.7),           # 固定在桌子侧上方
-        rot=(0.000, -0.087, 0.000, 0.996),  # 约俯视45°（wxyz）
+        # Side view: closer in x, offset in +y, looking at the table center.
+        pos=(1.35, 1.20, 0.75),
+        rot=(-0.4562, -0.1035, -0.0535, 0.8822),  # wxyz, world +X toward (0.50, 0.00, 0.40)
         convention="world",
     ),
 )
@@ -1012,37 +1082,54 @@ def move_to_pose(planner,q_start,goal_pose):
     #     return True
     # else:
     #     return False
-def whether_reach_left(scene,goal_pose):   
-    ee_goals = goal_pose
-    robot = scene["robot_left"]
-    # 1. 初始化：获取末端索引
-    ee_link_name = "panda_hand"
-    ee_link_idx, _ = robot.find_bodies(ee_link_name)
-    pos_threshold = 0.1
-    # if step == 1:
-    #     pos_threshold = 0.03
-
-    ee_state = robot.data.body_state_w[:, ee_link_idx, :]
-    current_ee_pos = ee_state[:, 0:3]
-    current_ee_pos = current_ee_pos[0][0]
-    target_pos_tensor = torch.tensor(ee_goals[:3], device=robot.device, dtype=current_ee_pos.dtype)
-    distance = torch.norm(current_ee_pos[0:3] - target_pos_tensor)
-    return bool(distance.item() < pos_threshold)
+def _hand_quat_angle_rad(q_wxyz_a, q_wxyz_b) -> float:
+    dot = abs(
+        float(q_wxyz_a[0]) * float(q_wxyz_b[0])
+        + float(q_wxyz_a[1]) * float(q_wxyz_b[1])
+        + float(q_wxyz_a[2]) * float(q_wxyz_b[2])
+        + float(q_wxyz_a[3]) * float(q_wxyz_b[3])
+    )
+    return 2.0 * float(np.arccos(min(1.0, dot)))
 
 
-def whether_reach_right(scene,goal_pose):   
-    ee_goals = goal_pose
-    robot = scene["robot_right"]
-    ee_link_name = "panda_hand"
-    ee_link_idx, _ = robot.find_bodies(ee_link_name)
-    pos_threshold = 0.1
+def _hand_pose_reached(robot, goal_pose, ori_threshold=float(np.deg2rad(10.0)), pos_threshold=0.04) -> bool:
+    """Position within pos_threshold meters and hand orientation within ori_threshold radians."""
+    ee_link_idx, _ = robot.find_bodies("panda_hand")
+    # body_state_w is (env, body, 13): xyz, quat wxyz, linear vel, angular vel.
+    hand = robot.data.body_state_w[0, int(ee_link_idx[0])]
+    current_ee_pos = hand[0:3]
+    target_pos_tensor = torch.tensor(goal_pose[:3], device=hand.device, dtype=hand.dtype)
+    if torch.norm(current_ee_pos - target_pos_tensor).item() >= float(pos_threshold):
+        return False
+    if len(goal_pose) < 7:
+        return True
+    return _hand_quat_angle_rad(hand[3:7], goal_pose[3:7]) < float(ori_threshold)
 
-    ee_state = robot.data.body_state_w[:, ee_link_idx, :]
-    current_ee_pos = ee_state[:, 0:3]
-    current_ee_pos = current_ee_pos[0][0]
-    target_pos_tensor = torch.tensor(ee_goals[:3], device=robot.device, dtype=current_ee_pos.dtype)
-    distance = torch.norm(current_ee_pos[0:3] - target_pos_tensor)
-    return bool(distance.item() < pos_threshold)
+
+def whether_reach_left(scene, goal_pose, ori_threshold=float(np.deg2rad(10.0)), pos_threshold=0.04):
+    return _hand_pose_reached(scene["robot_left"], goal_pose, ori_threshold, pos_threshold)
+
+
+def whether_reach_right(scene, goal_pose, ori_threshold=float(np.deg2rad(10.0)), pos_threshold=0.04):
+    return _hand_pose_reached(scene["robot_right"], goal_pose, ori_threshold, pos_threshold)
+
+
+def _arms_still_moving(runtime, speed: float = 0.08) -> bool:
+    """True while an arm joint is still moving. Gripper joints are ignored."""
+    robots = getattr(runtime, "robots", None) or {}
+    fingers = getattr(runtime, "finger_indices", None) or {}
+    for name, robot in robots.items():
+        vel = getattr(getattr(robot, "data", None), "joint_vel", None)
+        if vel is None or vel.numel() == 0:
+            return True
+        row = vel[0]
+        skip = {int(i) for i in fingers.get(name, [])}
+        for i in range(int(row.shape[0])):
+            if i in skip:
+                continue
+            if abs(float(row[i].item())) > speed:
+                return True
+    return False
 
 
 def _append_cube_as_triangles(
@@ -1532,6 +1619,708 @@ def plan_concat_segments(planner, q_start, arc_points, quat=[0.707, 0.0, 0.707, 
     if len(segs) == 0:
         return None
     return torch.cat(segs, dim=0)
+def _collision_world_points(stage, prim_path: str) -> list[list[float]]:
+    """World-space samples of a prim's collision meshes and collision cubes."""
+    root = stage.GetPrimAtPath(prim_path)
+    if not root.IsValid():
+        return []
+    points: list[list[float]] = []
+    predicate = Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)
+    for prim in Usd.PrimRange(root, predicate):
+        path_l = prim.GetPath().pathString.lower()
+        if "collision" not in path_l and not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if prim.IsA(UsdGeom.Mesh):
+            mesh = UsdGeom.Mesh(prim)
+            raw = mesh.GetPointsAttr().Get()
+            if not raw:
+                continue
+            world_tf = mesh.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+            for pt in raw:
+                w = world_tf.Transform(Gf.Vec3d(float(pt[0]), float(pt[1]), float(pt[2])))
+                points.append([float(w[0]), float(w[1]), float(w[2])])
+        elif prim.IsA(UsdGeom.Cube):
+            cube = UsdGeom.Cube(prim)
+            size = cube.GetSizeAttr().Get()
+            half = 1.0 if size is None else float(size) * 0.5
+            world_tf = cube.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+            for x in (-half, half):
+                for y in (-half, half):
+                    for z in (-half, half):
+                        w = world_tf.Transform(Gf.Vec3d(x, y, z))
+                        points.append([float(w[0]), float(w[1]), float(w[2])])
+    return points
+
+
+def _asset_prim_path(stage, scene_key: str, env_id: int = 0):
+    """Scene key is ``table_1__env0``; the USD prim is ``/World/envs/env_0/table_1``."""
+    name = str(scene_key)
+    marker = f"__env{env_id}"
+    asset_name = name[: -len(marker)] if name.endswith(marker) else name
+    for candidate in (
+        f"/World/envs/env_{env_id}/{asset_name}",
+        f"/World/envs/env_{env_id}/{name}",
+    ):
+        if stage.GetPrimAtPath(candidate).IsValid():
+            return candidate, asset_name
+    return None, asset_name
+
+
+def named_collision_cuboid(scene, kind: str):
+    """Axis-aligned cuboid of a spawned asset's collision geometry right now."""
+    stage = scene.stage
+    prim_path = None
+    prim_name = None
+    for key in scene.keys():
+        name = str(key)
+        low = name.lower()
+        if "concept" in low:
+            continue
+        if kind == "table" and "table" not in low:
+            continue
+        if kind == "microwave" and "mic" not in low:
+            continue
+        candidate, asset_name = _asset_prim_path(stage, name)
+        if candidate is not None:
+            prim_path = candidate
+            prim_name = asset_name
+            break
+    if prim_path is None:
+        print(f"[curobo] no {kind} prim; obstacle stays off")
+        return None
+    pts = _collision_world_points(stage, prim_path)
+    if not pts:
+        cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(),
+            [UsdGeom.Tokens.default_, UsdGeom.Tokens.proxy, UsdGeom.Tokens.guide],
+        )
+        box = cache.ComputeWorldBound(stage.GetPrimAtPath(prim_path)).ComputeAlignedBox()
+        mn, mx = box.GetMin(), box.GetMax()
+        if mn[0] > mx[0]:
+            print(f"[curobo] {kind} {prim_path} has no collision bounds")
+            return None
+        mins = [float(mn[0]), float(mn[1]), float(mn[2])]
+        maxs = [float(mx[0]), float(mx[1]), float(mx[2])]
+        source = "bbox"
+    else:
+        arr = np.asarray(pts, dtype=np.float64)
+        mins = arr.min(axis=0).tolist()
+        maxs = arr.max(axis=0).tolist()
+        source = f"collision pts={len(pts)}"
+    dims = [max(maxs[i] - mins[i], 0.01) for i in range(3)]
+    center = [(mins[i] + maxs[i]) * 0.5 for i in range(3)]
+    print(
+        f"[curobo] {kind} obstacle {prim_name} {source} center={[round(v, 3) for v in center]} "
+        f"dims={[round(v, 3) for v in dims]}"
+    )
+    return Cuboid(
+        name=kind,
+        pose=[center[0], center[1], center[2], 1.0, 0.0, 0.0, 0.0],
+        dims=dims,
+    )
+
+
+def _scene_prim(scene, kind: str):
+    stage = scene.stage
+    for key in scene.keys():
+        name = str(key)
+        low = name.lower()
+        if "concept" in low:
+            continue
+        if kind == "table" and "table" not in low:
+            continue
+        if kind == "microwave" and "mic" not in low:
+            continue
+        candidate, asset_name = _asset_prim_path(stage, name)
+        if candidate is not None:
+            return stage, candidate, asset_name
+    return stage, None, None
+
+
+def _mesh_world_triangles(mesh: UsdGeom.Mesh):
+    raw = mesh.GetPointsAttr().Get()
+    counts = mesh.GetFaceVertexCountsAttr().Get()
+    indices = mesh.GetFaceVertexIndicesAttr().Get()
+    if not raw or not counts or not indices:
+        return None, None
+    world_tf = mesh.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    vertices = []
+    for pt in raw:
+        w = world_tf.Transform(Gf.Vec3d(float(pt[0]), float(pt[1]), float(pt[2])))
+        vertices.append([float(w[0]), float(w[1]), float(w[2])])
+    faces = []
+    cursor = 0
+    for count in counts:
+        n = int(count)
+        poly = [int(indices[cursor + i]) for i in range(n)]
+        cursor += n
+        for k in range(1, n - 1):
+            faces.append([poly[0], poly[k], poly[k + 1]])
+    if not faces:
+        return None, None
+    return vertices, faces
+
+
+def named_collision_meshes(scene, kind: str):
+    """Each live collision mesh, in world coordinates, so the open door stays hollow."""
+    stage, prim_path, prim_name = _scene_prim(scene, kind)
+    if prim_path is None:
+        print(f"[curobo] no {kind} prim; mesh obstacle stays off")
+        return []
+    meshes = []
+    predicate = Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)
+    root = stage.GetPrimAtPath(prim_path)
+    scan_id = int(getattr(named_collision_meshes, "_scan_id", 0)) + 1
+    named_collision_meshes._scan_id = scan_id
+    for prim in Usd.PrimRange(root, predicate):
+        path_l = prim.GetPath().pathString.lower()
+        if "visual" in path_l and "collision" not in path_l:
+            continue
+        if "collision" not in path_l and not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        vertices, faces = _mesh_world_triangles(UsdGeom.Mesh(prim))
+        if vertices is None:
+            continue
+        meshes.append(
+            Mesh(
+                name=f"{kind}_{scan_id}_{len(meshes)}",
+                pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                vertices=vertices,
+                faces=faces,
+            )
+        )
+    n_verts = sum(len(mesh.vertices) for mesh in meshes)
+    n_faces = sum(len(mesh.faces) for mesh in meshes)
+    print(f"[curobo] {kind} mesh obstacle {prim_name} parts={len(meshes)} verts={n_verts} faces={n_faces}")
+    return meshes
+
+
+def table_collision_cuboid(scene):
+    return named_collision_cuboid(scene, "table")
+
+
+def _asset_collision_bounds(scene, scene_key: str, env_id: int = 0):
+    """World AABB of an asset's collision geometry. Falls back to the prim bounds."""
+    stage = scene.stage
+    prim_path, _asset_name = _asset_prim_path(stage, scene_key, env_id)
+    if prim_path is None:
+        return None
+    pts = _collision_world_points(stage, prim_path)
+    if pts:
+        arr = np.asarray(pts, dtype=np.float64)
+        return arr.min(axis=0), arr.max(axis=0)
+    aabb = _prim_world_aabb(stage.GetPrimAtPath(prim_path))
+    if aabb is None:
+        return None
+    center, size = aabb
+    center = np.array([float(center[i]) for i in range(3)], dtype=np.float64)
+    size = np.array([float(size[i]) for i in range(3)], dtype=np.float64)
+    return center - 0.5 * size, center + 0.5 * size
+
+
+def _ray_hit_aabb(origin, direction, mins, maxs):
+    """First hit of a ray on an axis-aligned box. None when the ray misses."""
+    origin = np.asarray(origin, dtype=np.float64)
+    direction = np.asarray(direction, dtype=np.float64)
+    mins = np.asarray(mins, dtype=np.float64)
+    maxs = np.asarray(maxs, dtype=np.float64)
+    tmin, tmax = 0.0, 1.0e6
+    for axis in range(3):
+        if abs(float(direction[axis])) < 1e-8:
+            if origin[axis] < mins[axis] or origin[axis] > maxs[axis]:
+                return None
+            continue
+        inv = 1.0 / float(direction[axis])
+        t1 = (mins[axis] - origin[axis]) * inv
+        t2 = (maxs[axis] - origin[axis]) * inv
+        if t1 > t2:
+            t1, t2 = t2, t1
+        tmin = max(tmin, t1)
+        tmax = min(tmax, t2)
+        if tmin > tmax:
+            return None
+    if tmax < 0.0:
+        return None
+    travel = tmin if tmin >= 0.0 else 0.0
+    return origin + direction * travel
+
+
+def _grasp_marks(compiler, scene, atomic_plan, bounds_by_asset: dict):
+    """One mark per atom: the pose where the gripper first closes, and the surface hit."""
+    marks = []
+    for index, step in enumerate(atomic_plan):
+        try:
+            waypoints = compiler.compile_step(step, scene, index)
+        except Exception as exc:
+            print(f"[grasp-vis] skip {step.get('asset')}.{step.get('atom')}: {exc}")
+            continue
+        previous = None
+        chosen = None
+        for wp in waypoints:
+            grip = wp.get("gripper", "open")
+            if grip == "close" and previous == "open":
+                chosen = wp
+                break
+            previous = grip
+        if chosen is None:
+            continue
+        pose = list(chosen["pose"])
+        pos = np.asarray(pose[:3], dtype=np.float64)
+        quat = np.asarray(pose[3:7], dtype=np.float64)
+        hand_rot = R.from_quat([quat[1], quat[2], quat[3], quat[0]]).as_matrix()
+        into_object = hand_rot[:, 2]
+        asset_id = str(step.get("asset", ""))
+        affordance = pos
+        bounds = bounds_by_asset.get(asset_id)
+        if bounds is not None:
+            hit = _ray_hit_aabb(pos, into_object, bounds[0], bounds[1])
+            if hit is None:
+                hit = _ray_hit_aabb(pos, -into_object, bounds[0], bounds[1])
+            if hit is not None:
+                affordance = hit
+        arm = str(chosen.get("executor", ""))
+        marks.append(
+            {
+                "name": asset_id,
+                "atom": str(step.get("atom", "")),
+                "arm": arm,
+                "pos": pos,
+                "quat": quat,
+                "affordance": affordance,
+            }
+        )
+    return marks
+
+
+def _prepare_head_grasp_scene(scene, world, compiler, atomic_plan) -> dict:
+    """Collision boxes and the first close-gripper pose of each atom. Computed once."""
+    objects = []
+    bounds_by_asset = {}
+    for asset_id in world.knowledge_map:
+        if "concept" in str(asset_id).lower():
+            continue
+        try:
+            _asset, scene_key = world.resolve_asset(asset_id, 0)
+        except Exception:
+            continue
+        bounds = _asset_collision_bounds(scene, scene_key, 0)
+        if bounds is None:
+            continue
+        bounds_by_asset[str(asset_id)] = bounds
+        objects.append({"name": str(asset_id), "mins": bounds[0], "maxs": bounds[1]})
+    grasps = _grasp_marks(compiler, scene, atomic_plan, bounds_by_asset)
+    return {"objects": objects, "grasps": grasps}
+
+
+def _head_camera_ros_pose(scene, cam):
+    """Camera position and ROS axes taken from the live USD camera prim.
+
+    USD cameras look along local -Z with +Y up. ROS looks along +Z with +Y down.
+    """
+    stage = scene.stage
+    raw = str(getattr(getattr(cam, "cfg", None), "prim_path", ""))
+    resolved = raw.replace("{ENV_REGEX_NS}", "/World/envs/env_0").replace("env_.*", "env_0")
+    candidates = [resolved]
+    if "HeadCamera" in resolved:
+        candidates.append("/World/envs/env_0/Robot_right/HeadCamera")
+    prim = None
+    for path in candidates:
+        if not path:
+            continue
+        found = stage.GetPrimAtPath(path)
+        if found.IsValid():
+            prim = found
+            break
+    if prim is None:
+        pos = cam.data.pos_w[0].detach().cpu().numpy()
+        quat = cam.data.quat_w_ros[0].detach().cpu().numpy()
+        rot = R.from_quat([quat[1], quat[2], quat[3], quat[0]]).as_matrix()
+        return pos, rot
+    xf = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    origin = xf.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+    right = xf.Transform(Gf.Vec3d(1.0, 0.0, 0.0)) - origin
+    up = xf.Transform(Gf.Vec3d(0.0, 1.0, 0.0)) - origin
+    forward = -(xf.Transform(Gf.Vec3d(0.0, 0.0, 1.0)) - origin)
+    down = -up
+    pos = np.array([float(origin[0]), float(origin[1]), float(origin[2])], dtype=np.float64)
+    axes = [right, down, forward]
+    cols = []
+    for axis in axes:
+        vec = np.array([float(axis[0]), float(axis[1]), float(axis[2])], dtype=np.float64)
+        n = np.linalg.norm(vec)
+        cols.append(vec / n if n > 1e-8 else vec)
+    return pos, np.stack(cols, axis=1)
+
+
+def _save_head_grasp_annotation(scene, prepared: dict, task_name: str) -> bool:
+    """Save one head-camera frame with collision boxes, grasp axes, and affordance dots."""
+    from PIL import Image as PILImage
+
+    try:
+        cam = scene["head_camera"]
+    except Exception:
+        print("[grasp-vis] no head_camera")
+        return False
+    rgb = cam.data.output.get("rgb")
+    if rgb is None:
+        return False
+    frame = rgb[0, ..., :3]
+    if isinstance(frame, torch.Tensor):
+        frame = frame.detach().cpu().numpy()
+    frame = np.asarray(frame)
+    if frame.size == 0:
+        return False
+    if frame.dtype != np.uint8:
+        scale = 255.0 if float(np.nanmax(frame)) <= 1.5 else 1.0
+        frame = np.clip(frame * scale, 0, 255).astype(np.uint8)
+    frame = np.ascontiguousarray(frame)
+    if float(frame.mean()) < 2.0:
+        return False
+    cam_pos, cam_rot = _head_camera_ros_pose(scene, cam)
+    intrinsic = cam.data.intrinsic_matrices[0].detach().cpu().numpy()
+    annotated = render_head_grasp_annotation(
+        frame,
+        cam_pos,
+        None,
+        intrinsic,
+        prepared["objects"],
+        prepared["grasps"],
+        cam_rot=cam_rot,
+    )
+    safe = re.sub(r"[^\w.\-]+", "_", str(task_name or "task")).strip("._") or "task"
+    out_path = PROJECT_ROOT / f"head_grasp_{safe}.png"
+    PILImage.fromarray(annotated).save(out_path, format="PNG")
+    print(
+        f"[grasp-vis] {out_path} objects={len(prepared['objects'])} "
+        f"grasps={len(prepared['grasps'])} image={annotated.shape[1]}x{annotated.shape[0]} "
+        f"cam={[round(float(v), 3) for v in cam_pos]}"
+    )
+    return True
+
+
+def _mark_from_waypoint(wp: dict, bounds_by_asset: dict, asset_id: str | None = None) -> dict:
+    """Grasp arrow from the waypoint pose, affordance where that axis meets the object."""
+    pose = list(wp["pose"])
+    pos = np.asarray(pose[:3], dtype=np.float64)
+    quat = np.asarray(pose[3:7], dtype=np.float64)
+    hand_rot = R.from_quat([quat[1], quat[2], quat[3], quat[0]]).as_matrix()
+    into_object = hand_rot[:, 2]
+    name = str(asset_id or wp.get("grasp_asset") or "")
+    affordance = pos
+    bounds = bounds_by_asset.get(name)
+    if bounds is not None:
+        hit = _ray_hit_aabb(pos, into_object, bounds[0], bounds[1])
+        if hit is None:
+            hit = _ray_hit_aabb(pos, -into_object, bounds[0], bounds[1])
+        if hit is not None:
+            affordance = hit
+    return {
+        "name": name,
+        "atom": str(wp.get("atom", "")),
+        "arm": str(wp.get("executor", "")),
+        "pos": pos,
+        "quat": quat,
+        "affordance": affordance,
+    }
+
+
+def _first_close_waypoint(tasks: list) -> dict | None:
+    previous = None
+    for wp in tasks:
+        grip = wp.get("gripper", "open")
+        if grip == "close" and previous == "open":
+            return wp
+        previous = grip
+    return None
+
+
+def _runtime_grasp_marks(runtime, objects) -> list:
+    """Hand pose at each grasp close, and the point where that axis meets the object."""
+    compiled = getattr(runtime, "compiled", None)
+    if compiled is None or not getattr(compiled, "waypoints", None):
+        return []
+    bounds = {
+        str(obj["name"]): (np.asarray(obj["mins"], dtype=np.float64), np.asarray(obj["maxs"], dtype=np.float64))
+        for obj in objects
+    }
+    asset_id = str(getattr(compiled, "asset_id", "") or "")
+    if getattr(compiled, "simultaneous", False):
+        packs = [list(runtime.left_arm.tasks or []), list(runtime.right_arm.tasks or [])]
+    else:
+        packs = [list(compiled.waypoints)]
+    marks = []
+    for tasks in packs:
+        wp = _first_close_waypoint(tasks)
+        if wp is None and tasks and tasks[0].get("gripper") == "close":
+            wp = tasks[0]
+        if wp is None or "pose" not in wp:
+            continue
+        marks.append(_mark_from_waypoint(wp, bounds, wp.get("grasp_asset") or asset_id))
+    return marks
+
+
+def _live_hand_marks(scene, objects) -> list:
+    """Current panda_hand pose. Red arrow follows the fingers as the arm moves."""
+    marks = []
+    for key in ("robot_left", "robot_right"):
+        try:
+            robot = scene[key]
+            ids, _ = robot.find_bodies("panda_hand")
+            state = robot.data.body_state_w[0, int(ids[0])]
+        except Exception:
+            continue
+        pos = np.asarray(state[0:3].detach().cpu().numpy(), dtype=np.float64)
+        quat = np.asarray(state[3:7].detach().cpu().numpy(), dtype=np.float64)
+        hand_rot = R.from_quat([float(quat[1]), float(quat[2]), float(quat[3]), float(quat[0])]).as_matrix()
+        direction = hand_rot[:, 2]
+        affordance = None
+        best = None
+        for obj in objects:
+            name = str(obj.get("name", "")).lower()
+            if "table" in name:
+                continue
+            hit = _ray_hit_aabb(pos, direction, obj["mins"], obj["maxs"])
+            if hit is None:
+                continue
+            dist = float(np.linalg.norm(hit - pos))
+            if dist > 0.2:
+                continue
+            if best is None or dist < best:
+                best = dist
+                affordance = hit
+        marks.append(
+            {
+                "name": key,
+                "atom": "ee",
+                "arm": key,
+                "pos": pos,
+                "quat": quat,
+                "affordance": affordance,
+                "label": False,
+            }
+        )
+    return marks
+
+
+def _place_can_stage(runtime, saved: set[str]) -> str | None:
+    """Five moments: approach, grasp, lift, then each can lowered into the box."""
+    compiled = getattr(runtime, "compiled", None)
+    if compiled is None:
+        return None
+    atom = str(compiled.atom or "")
+    if compiled.simultaneous and "pick" in atom:
+        left = int(runtime.left_arm.step_idx)
+        right = int(runtime.right_arm.step_idx)
+        if left >= 2 and right >= 2 and "01_approach" not in saved:
+            return "01_approach"
+        if left >= 3 and right >= 3 and "02_grasp" not in saved:
+            return "02_grasp"
+        if left >= 4 and right >= 4 and "03_lift" not in saved:
+            return "03_lift"
+        return None
+    step = int(runtime._seq.step)
+    if atom == "into_1" and step >= 2 and "04_place_can1" not in saved:
+        return "04_place_can1"
+    if atom == "into_2" and step >= 2 and "05_place_can2" not in saved:
+        return "05_place_can2"
+    return None
+
+
+def _roller_stage(runtime, saved: set[str]) -> str | None:
+    """Hover, lower onto the roller, close, then lift. Both hands share one roller."""
+    compiled = getattr(runtime, "compiled", None)
+    if compiled is None or not compiled.simultaneous or "grap" not in str(compiled.atom or ""):
+        return None
+    left = int(runtime.left_arm.step_idx)
+    right = int(runtime.right_arm.step_idx)
+    if left >= 1 and right >= 1 and "01_approach" not in saved:
+        return "01_approach"
+    if left >= 2 and right >= 2 and "02_down" not in saved:
+        return "02_down"
+    if left >= 3 and right >= 3 and "03_grasp" not in saved:
+        return "03_grasp"
+    if left >= 4 and right >= 4 and "04_lift" not in saved:
+        return "04_lift"
+    return None
+
+
+def _roller_marks(runtime, bounds_by_asset: dict) -> list:
+    marks = []
+    for tasks in (runtime.left_arm.tasks, runtime.right_arm.tasks):
+        wp = tasks[1] if len(tasks) > 1 else _first_close_waypoint(tasks)
+        if wp is not None:
+            marks.append(_mark_from_waypoint(wp, bounds_by_asset, "roller_1"))
+    return marks
+
+
+def _usd_root_rigid(stage, prim_path: str):
+    """Root translation and rotation. Scale stays in the point coordinates."""
+    xf = UsdGeom.Xformable(stage.GetPrimAtPath(prim_path)).ComputeLocalToWorldTransform(
+        Usd.TimeCode.Default()
+    )
+    origin = xf.Transform(Gf.Vec3d(0.0, 0.0, 0.0))
+    cols = []
+    for vec in (Gf.Vec3d(1.0, 0.0, 0.0), Gf.Vec3d(0.0, 1.0, 0.0), Gf.Vec3d(0.0, 0.0, 1.0)):
+        axis = xf.Transform(vec) - origin
+        arr = np.array([float(axis[0]), float(axis[1]), float(axis[2])], dtype=np.float64)
+        norm = float(np.linalg.norm(arr))
+        cols.append(arr / norm if norm > 1e-8 else arr)
+    pos = np.array([float(origin[0]), float(origin[1]), float(origin[2])], dtype=np.float64)
+    return pos, np.stack(cols, axis=1)
+
+
+def _collision_body_points(stage, prim_path: str):
+    """Collision samples in the rigid-body frame, with the asset scale kept.
+
+    USD world points and the USD root pose are a matching pair, so removing that
+    pose leaves a local cloud that is still valid after the body moves.
+    """
+    cache = getattr(_collision_body_points, "_cache", None)
+    if cache is None:
+        cache = {}
+        _collision_body_points._cache = cache
+    if prim_path in cache:
+        return cache[prim_path]
+    pts = _collision_world_points(stage, prim_path)
+    if not pts:
+        cache[prim_path] = None
+        return None
+    origin, rot = _usd_root_rigid(stage, prim_path)
+    cache[prim_path] = (np.asarray(pts, dtype=np.float64) - origin) @ rot
+    return cache[prim_path]
+
+
+def _physics_collision_objects(scene, world) -> list:
+    """Collision AABBs placed at each asset's physics root on this frame."""
+    objects = []
+    stage = scene.stage
+    for asset_id in world.knowledge_map:
+        if "concept" in str(asset_id).lower():
+            continue
+        try:
+            asset, scene_key = world.resolve_asset(asset_id, 0)
+        except Exception:
+            continue
+        prim_path, _asset_name = _asset_prim_path(stage, scene_key, 0)
+        body = None if prim_path is None else _collision_body_points(stage, prim_path)
+        if body is None or not hasattr(asset.data, "root_pos_w"):
+            bounds = _asset_collision_bounds(scene, scene_key, 0)
+            if bounds is None:
+                continue
+            objects.append({"name": str(asset_id), "mins": bounds[0], "maxs": bounds[1]})
+            continue
+        pos = np.asarray(asset.data.root_pos_w[0].detach().cpu().numpy(), dtype=np.float64)
+        quat = np.asarray(asset.data.root_quat_w[0].detach().cpu().numpy(), dtype=np.float64)
+        rot = R.from_quat([float(quat[1]), float(quat[2]), float(quat[3]), float(quat[0])]).as_matrix()
+        world_pts = body @ rot.T + pos
+        if len(world_pts) > 400:
+            world_pts = world_pts[:: max(1, len(world_pts) // 400)]
+        objects.append(
+            {
+                "name": str(asset_id),
+                "mins": world_pts.min(axis=0),
+                "maxs": world_pts.max(axis=0),
+                "points": world_pts,
+            }
+        )
+    return objects
+
+
+def _roller_live_marks(scene, world, bounds_by_asset: dict) -> list:
+    """Same hand offsets as grap, rebuilt from the roller's pose on this frame."""
+    try:
+        asset, _scene_key = world.resolve_asset("roller_1", 0)
+    except Exception:
+        return []
+    pos = np.asarray(asset.data.root_pos_w[0].detach().cpu().numpy(), dtype=np.float64)
+    quat = np.asarray(asset.data.root_quat_w[0].detach().cpu().numpy(), dtype=np.float64)
+    hand_rot = R.from_quat(wxyz_to_xyzw(quat)) * R.from_euler("y", 90, degrees=True)
+    hand_quat = np.asarray(xyzw_to_wxyz(hand_rot.as_quat()), dtype=np.float64)
+    marks = []
+    for local_x, arm in ((-0.1, "simultaneous_left"), (0.1, "simultaneous_right")):
+        contact = pos + hand_rot.apply([local_x, 0.0, 0.0])
+        contact = np.array([contact[0], contact[1], pos[2] + 0.08], dtype=np.float64)
+        wp = {
+            "pose": [float(contact[0]), float(contact[1]), float(contact[2]), *hand_quat.tolist()],
+            "atom": "grap_simulataneously",
+            "executor": arm,
+        }
+        marks.append(_mark_from_waypoint(wp, bounds_by_asset, "roller_1"))
+    return marks
+
+
+def _place_can_marks(runtime, stage: str, bounds_by_asset: dict) -> list:
+    if stage.startswith("0") and stage[1] in "123":
+        marks = []
+        for tasks, asset_id in (
+            (runtime.left_arm.tasks, "can_1"),
+            (runtime.right_arm.tasks, "can_2"),
+        ):
+            wp = _first_close_waypoint(tasks)
+            if wp is not None:
+                marks.append(_mark_from_waypoint(wp, bounds_by_asset, asset_id))
+        return marks
+    compiled = runtime.compiled
+    if compiled is None or len(compiled.waypoints) < 2:
+        return []
+    asset_id = "plasticbox_1" if "plasticbox_1" in bounds_by_asset else str(compiled.asset_id)
+    return [_mark_from_waypoint(compiled.waypoints[1], bounds_by_asset, asset_id)]
+
+
+def _live_collision_objects(scene, world) -> list:
+    """Collision boxes from the USD world pose. Kept as the backup annotation."""
+    objects = []
+    for asset_id in world.knowledge_map:
+        if "concept" in str(asset_id).lower():
+            continue
+        try:
+            _asset, scene_key = world.resolve_asset(asset_id, 0)
+        except Exception:
+            continue
+        bounds = _asset_collision_bounds(scene, scene_key, 0)
+        if bounds is None:
+            continue
+        objects.append({"name": str(asset_id), "mins": bounds[0], "maxs": bounds[1]})
+    return objects
+
+
+def _save_place_can_keyframe(scene, world, runtime, prepared: dict, stage: str, task_name: str) -> bool:
+    usd_bounds = {obj["name"]: (obj["mins"], obj["maxs"]) for obj in prepared["objects"]}
+    live_objects = _physics_collision_objects(scene, world)
+    live_bounds = {obj["name"]: (obj["mins"], obj["maxs"]) for obj in live_objects}
+    if task_name == "grap_roller":
+        usd_marks = _roller_marks(runtime, usd_bounds)
+        live_marks = _roller_live_marks(scene, world, live_bounds)
+    else:
+        usd_marks = _place_can_marks(runtime, stage, usd_bounds)
+        live_marks = _place_can_marks(runtime, stage, live_bounds)
+    _save_head_grasp_annotation(
+        scene,
+        {"objects": prepared["objects"], "grasps": usd_marks},
+        f"{task_name}_{stage}_planned",
+    )
+    return _save_head_grasp_annotation(
+        scene,
+        {"objects": live_objects, "grasps": live_marks},
+        f"{task_name}_{stage}",
+    )
+
+
+def _marker_origin(scene) -> tuple[float, float, float]:
+    """Green marks stay on env_0. Later envs are the same scene with no overlay."""
+    origins = getattr(scene, "env_origins", None)
+    if origins is None or len(origins) < 2:
+        return (0.0, 0.0, 0.0)
+    origin = tuple(float(v) for v in origins[0].detach().cpu().tolist())
+    print(
+        f"[INFO] {len(origins)} envs: green markers only on env_0 at "
+        f"{[round(v, 3) for v in origin]}; other envs have none"
+    )
+    return origin
+
+
 def run_simulator(
     sim: sim_utils.SimulationContext,
     scene: InteractiveScene,
@@ -1624,46 +2413,62 @@ def run_simulator(
 #     pose = obstacle_pose,
 #     scale=None # 因为顶点已经是真实世界尺寸了
 # )
-    cube = Cuboid(
+    far_cube = Cuboid(
         name="mic_bottom",
         pose=[100, 100+ 0.4, 0.3 - 0.2, 1.0, 0.0, 0.0, 0.0],
         dims=[5, 5, 0.001],  # 长, 宽, 高 (单位: 米)
         color=[0.4, 0.4, 0.4, 1.0],  # 灰色
     )
-    curobo_scene_model = SceneCfg(
-        # mesh=[curobo_obstacle]
-        cuboid=[cube]
-        # mesh=[microwave_mesh]
-        
-    )
+    empty_scene = SceneCfg(cuboid=[far_cube])
+    table_cube = table_collision_cuboid(scene)
+    table_scene = SceneCfg(cuboid=[table_cube]) if table_cube is not None else None
+    curobo_scene_model = empty_scene
 
+    # Mesh slots stay allocated from the start. The live microwave scan fills them later.
+    collision_cache = {"cuboid": 8, "mesh": 256}
     config_left = MotionPlannerCfg.create(
         robot="franka.yml",
         scene_model=curobo_scene_model,
+        collision_cache=collision_cache,
         self_collision_check=False,
         optimizer_collision_activation_distance=0.02,
         num_ik_seeds=64,
-        position_tolerance = 0.1,
-        orientation_tolerance= 0.08,
+        position_tolerance = 0.06,
+        orientation_tolerance=0.08,
     )
     config_right = MotionPlannerCfg.create(
         robot="franka.yml",
         scene_model=curobo_scene_model,
+        collision_cache=collision_cache,
         self_collision_check=False,
         optimizer_collision_activation_distance=0.02,
-        position_tolerance = 0.1,
-        orientation_tolerance= 0.08,
+        position_tolerance = 0.06,
+        orientation_tolerance=0.08,
         num_ik_seeds=64,
     )
     planner_left = MotionPlanner(config_left)
     planner_left.warmup(enable_graph=True, num_warmup_iterations=5)
     link_list=["panda_leftfinger","panda_rightfinger","panda_hand"]
     planner_left.disable_link_collision(disable_collision_links=link_list)
+    planner_left.table_scene = table_scene
+    planner_left.empty_scene = empty_scene
+    planner_left.sim_scene = scene
+    planner_left.collision_cuboid = named_collision_cuboid
+    planner_left.collision_meshes = named_collision_meshes
+    planner_left.base_offset = (0.0, 0.4, 0.2)
+    planner_left._obstacle_mode = "empty"
 
     planner_right = MotionPlanner(config_right)
     planner_right.warmup(enable_graph=True, num_warmup_iterations=5)
     link_list=["panda_leftfinger","panda_rightfinger","panda_hand"]
     planner_right.disable_link_collision(disable_collision_links=link_list)
+    planner_right.table_scene = table_scene
+    planner_right.empty_scene = empty_scene
+    planner_right.sim_scene = scene
+    planner_right.collision_cuboid = named_collision_cuboid
+    planner_right.collision_meshes = named_collision_meshes
+    planner_right.base_offset = (0.0, -0.4, 0.2)
+    planner_right._obstacle_mode = "empty"
 
     robot_left = scene["robot_left"]
     robot_right = scene["robot_right"]
@@ -1693,17 +2498,73 @@ def run_simulator(
         i for i, name in enumerate(all_joint_names) if "finger" in name
     ]
 
-    record_stride = 5
-    fps = max(1, int(round(1.0 / (sim.get_physics_dt() * record_stride))))
-    video_writer = EpisodeVideoWriter(dataset_root=str(PROJECT_ROOT / "data"), fps=fps)
-    collector = DualArmParquetCollector(
-        CollectorConfig(
-            output_root=str(PROJECT_ROOT / "data"),
-            fps=fps,
-            arm_dof=7,
+    record_stride = 1
+    physics_dt = sim.get_physics_dt()
+    fps = max(1, int(round(1.0 / (physics_dt * record_stride))))
+    video_fps = max(1, int(round(1.0 / physics_dt)))
+    record_episode = bool(args_cli.record)
+    video_writer = None
+    collector = None
+    object_tracker = None
+    object_track_errors = 0
+    if task_ctx.task_name in ("grap_roller", "place_bread_basket", "scan_object", "place_dual_shoe", "place_dual_shoes"):
+        object_tracker = ThirdViewObjectTracker(
+            dataset_root=str(PROJECT_ROOT / "data"),
+            task_name=task_ctx.task_name,
+            id_to_type=getattr(task_ctx, "id_to_type", {}),
         )
-    )
-    episode_index = 0
+    def _dataset_dir(raw: str):
+        if not raw:
+            return PROJECT_ROOT / "data"
+        path = Path(raw)
+        return path if path.is_absolute() else PROJECT_ROOT / path
+
+    dataset_root = _dataset_dir(args_cli.dataset_root)
+    dataset_root_env1 = _dataset_dir(args_cli.dataset_root_env1) if args_cli.dataset_root_env1 else dataset_root
+    separate_dataset_roots = dataset_root_env1 != dataset_root
+    recorders = []
+    task_prompt = green_object_task_text(task_ctx.task_name, task_ctx.task_json)
+    if record_episode:
+        print(f"[INFO] task prompt: {task_prompt}")
+        video_writer = EpisodeVideoWriter(dataset_root=str(dataset_root), fps=fps)
+        collector = DualArmParquetCollector(
+            CollectorConfig(
+                output_root=str(dataset_root),
+                task_text=task_prompt,
+                fps=fps,
+                arm_dof=7,
+            )
+        )
+        recorders.append((0, collector, video_writer))
+        n_env = int(getattr(scene, "num_envs", 1))
+        if n_env > 1:
+            import collect_data_utils as _collect_mod
+
+            collector_env1 = DualArmParquetCollector(
+                CollectorConfig(
+                    output_root=str(dataset_root_env1),
+                    task_text=task_prompt,
+                    fps=fps,
+                    arm_dof=7,
+                )
+            )
+            _collect_mod._ACTIVE_COLLECTOR = collector
+            video_env1 = EpisodeVideoWriter(
+                dataset_root=str(dataset_root_env1),
+                fps=fps,
+                stream_prefix="env1_",
+            )
+            recorders.append((1, collector_env1, video_env1))
+            print(
+                "[INFO] env_0 annotated dataset "
+                f"{dataset_root}; env_1 plain dataset {dataset_root_env1}"
+            )
+        print(f"[INFO] recording dataset and video under {dataset_root}")
+    else:
+        collector = None
+        video_writer = None
+        print("[INFO] dataset recording and video export are off")
+    episode_index = int(args_cli.episode_index)
     frame_index = 0
     sim_time_s = 0.0
     sim_dt = sim.get_physics_dt()
@@ -1714,7 +2575,8 @@ def run_simulator(
     finger_close_right = torch.tensor([0.0, 0.0], device=robot_right.device, dtype=torch.float32)
 
     world = WorldState(scene=scene, knowledge_map=task_ctx.knowledge_map, env_id=0)
-    world.restore_import_poses()
+    # Keep the spawned poses. Restoring import poses drops the env origin and
+    # pulls env_0 assets behind the arms.
     world.refresh()
     compiler = AtomCompiler(
         knowledge_map=task_ctx.knowledge_map,
@@ -1742,14 +2604,17 @@ def run_simulator(
             env_id=0,
             max_atom_retries=4,
             hold_frames=40,
-            plan_every_n=2,
+            plan_every_n=1,
             drop_test_enabled=args_cli.anti_interference,
             live_pose_enabled=args_cli.anti_interference,
             grasp_check_enabled=args_cli.anti_interference,
         ),
         grasp_cfg=GraspMonitorCfg(),
         reach_fns={"robot_left": whether_reach_left, "robot_right": whether_reach_right},
+        scene_markers=ScenePlanMarkers(origin=_marker_origin(scene)),
     )
+    planner_left.scene_markers = runtime.scene_markers
+    planner_right.scene_markers = runtime.scene_markers
     scene.task_runtime = runtime
     scene.world_state = world
     # Live edit example (anytime during the loop):
@@ -1758,9 +2623,22 @@ def run_simulator(
     #   runtime.set_state("microwave_1", joint_pos=[0.4])
 
     settle_count = 0
+    still_count = 0
+    # After the plan says finished, keep recording while the arms are still
+    # moving so the last action is in the video. 100 frames is the shortest
+    # tail, 2000 frames is the longest.
+    settle_min_frames = 100
+    settle_still_frames = 50
+    settle_max_frames = 2000
     count=0
     status = "running"
     should_dump = False
+    exec_started = time.perf_counter()
+    last_preview_rgb: dict[int, np.ndarray] = {}
+    grasp_vis_done = False
+    grasp_vis_scene = None
+    place_can_shots: set[str] = set()
+    keyframe_task = task_ctx.task_name in ("place_cans_plasticbox", "grap_roller")
     while simulation_app.is_running():
         status = runtime.tick()
         count+=1
@@ -1772,61 +2650,188 @@ def run_simulator(
         scene.write_data_to_sim()
         sim.step()
         scene.update(sim_dt)
+        if args_cli.preview_dir:
+            from collect_data_utils import _copy_camera_rgb
 
-        if frame_index % record_stride == 0:
-            video_writer.append_from_scene(scene=scene, env_id=0)
-            collector.append_frame_from_sim(
-                scene=scene,
-                env_id=0,
-                episode_index=episode_index,
-                frame_index=frame_index,
-                sim_time_s=sim_time_s,
-                robot_left_key="robot_left",
-                robot_right_key="robot_right",
-                cam_head_key="head_camera",
-                cam_hand_left_key="hand_left_camera",
-                cam_hand_right_key="hand_right_camera",
-                left_ee_body="panda_hand",
-                right_ee_body="panda_hand",
-                left_tcp_body=None,
-                right_tcp_body=None,
-                left_armbase_body=None,
-                right_armbase_body=None,
-                robot_frame_pose7=None,
-            )
+            for preview_env in range(int(getattr(scene, "num_envs", 1))):
+                try:
+                    last_preview_rgb[preview_env] = _copy_camera_rgb(scene["side_camera"], preview_env)
+                except Exception:
+                    pass
+
+        if object_tracker is not None:
+            try:
+                side = scene["side_camera"]
+                rgb = side.data.output.get("rgb") if side.data.output is not None else None
+                intrinsics = getattr(side.data, "intrinsic_matrices", None)
+                if rgb is None or intrinsics is None:
+                    raise RuntimeError("side camera has no rgb yet")
+                side_pos, side_rot = _head_camera_ros_pose(scene, side)
+                side_k = intrinsics[0].detach().cpu().numpy()
+                objs = _physics_collision_objects(scene, world)
+                try:
+                    grasps = _runtime_grasp_marks(runtime, objs)
+                except Exception:
+                    grasps = []
+                try:
+                    live_hands = _live_hand_marks(scene, objs)
+                except Exception:
+                    live_hands = []
+                object_tracker.observe(
+                    _copy_camera_rgb(side, 0),
+                    side_pos,
+                    side_rot,
+                    side_k,
+                    objs,
+                    grasps,
+                    live_hands,
+                )
+            except Exception as exc:
+                object_track_errors += 1
+                if object_track_errors == 1 or object_track_errors % 200 == 0:
+                    print(f"[WARN] third-view object track skipped: {exc}")
+
+        if object_tracker is None and keyframe_task:
+            if task_ctx.task_name == "grap_roller":
+                stage = _roller_stage(runtime, place_can_shots)
+            else:
+                stage = _place_can_stage(runtime, place_can_shots)
+            if stage is not None and stage not in place_can_shots and len(place_can_shots) < 5:
+                try:
+                    prepared = {"objects": _live_collision_objects(scene, world)}
+                    if _save_place_can_keyframe(
+                        scene, world, runtime, prepared, stage, task_ctx.task_name
+                    ):
+                        place_can_shots.add(stage)
+                except Exception as exc:
+                    print(f"[WARN] place-can keyframe {stage} failed: {exc}")
+                    place_can_shots.add(stage)
+        elif object_tracker is None and not grasp_vis_done and count >= 8:
+            try:
+                if grasp_vis_scene is None:
+                    grasp_vis_scene = _prepare_head_grasp_scene(
+                        scene, world, compiler, task_ctx.atomic_plan
+                    )
+                grasp_vis_done = _save_head_grasp_annotation(
+                    scene, grasp_vis_scene, task_ctx.task_name
+                )
+            except Exception as exc:
+                print(f"[WARN] head grasp annotation failed: {exc}")
+                grasp_vis_done = True
+            if count >= 40:
+                grasp_vis_done = True
+
+        if record_episode:
+            for env_id, rec_collector, rec_video in recorders:
+                if frame_index % record_stride == 0:
+                    rec_video.append_from_scene(scene=scene, env_id=env_id)
+                    rec_collector.append_frame_from_sim(
+                        scene=scene,
+                        env_id=env_id,
+                        episode_index=episode_index + env_id,
+                        frame_index=frame_index,
+                        sim_time_s=sim_time_s,
+                        robot_left_key="robot_left",
+                        robot_right_key="robot_right",
+                        cam_head_key="head_camera",
+                        cam_hand_left_key="hand_left_camera",
+                        cam_hand_right_key="hand_right_camera",
+                        left_ee_body="panda_hand",
+                        right_ee_body="panda_hand",
+                        left_tcp_body=None,
+                        right_tcp_body=None,
+                        left_armbase_body=None,
+                        right_armbase_body=None,
+                        robot_frame_pose7=None,
+                    )
         frame_index += 1
         sim_time_s += sim_dt
 
-        if status in ("finished"):
-        
+        if status in ("finished",):
             settle_count += 1
-            if settle_count >= 40:
+            if _arms_still_moving(runtime):
+                still_count = 0
+            else:
+                still_count += 1
+            arms_stopped = settle_count >= settle_min_frames and still_count >= settle_still_frames
+            if arms_stopped or settle_count >= settle_max_frames:
+                print(
+                    f"[INFO] task finished; recording kept until the arms stopped "
+                    f"(extra_frames={settle_count})"
+                )
                 should_dump = True
                 break
+        if args_cli.max_frames > 0 and frame_index >= int(args_cli.max_frames):
+            print(f"[INFO] reached max_frames={int(args_cli.max_frames)}; saving video")
+            should_dump = True
+            break
+        if args_cli.max_seconds > 0 and (time.perf_counter() - exec_started) >= float(args_cli.max_seconds):
+            print(f"[INFO] reached max_seconds={int(args_cli.max_seconds)}; saving and closing")
+            should_dump = True
+            break
         # elif count == 5000:
         #         should_dump = True
         #         break
         
 
-    if should_dump:
+    if object_tracker is not None:
+        try:
+            object_tracker.finish()
+        except Exception as exc:
+            print(f"[WARN] third-view track export failed: {exc}")
+
+    if record_episode and should_dump:
         print(f"[INFO] dumping episode status={status} frames={frame_index}")
+        for env_id, rec_collector, rec_video in recorders:
+            ep = episode_index if separate_dataset_roots else episode_index + env_id
+            try:
+                rec_collector.dump_episode(ep)
+            except Exception as exc:
+                print(f"[WARN] dataset dump failed env_{env_id}: {exc}")
+            try:
+                rec_video.dump_episode(ep)
+            except Exception as exc:
+                print(f"[WARN] video dump failed env_{env_id}: {exc}")
         try:
-            collector.dump_episode(episode_index)
-        except Exception as exc:
-            print(f"[WARN] hdf5 dump failed: {exc}")
-        try:
-            video_writer.dump_episode(episode_index)
-        except Exception as exc:
-            print(f"[WARN] video dump failed: {exc}")
-        try:
+            if len(recorders) > 1:
+                collector.episode_lengths.extend(recorders[1][1].episode_lengths)
             collector.dump_info_json()
+            if separate_dataset_roots and len(recorders) > 1:
+                recorders[1][1].dump_info_json()
         except Exception as exc:
             print(f"[WARN] info.json dump failed: {exc}")
-    else:
+    elif record_episode:
         collector.dump_info_json()
+        if separate_dataset_roots and len(recorders) > 1:
+            recorders[1][1].dump_info_json()
+    if args_cli.preview_dir:
+        preview_root = Path(args_cli.preview_dir)
+        if not preview_root.is_absolute():
+            preview_root = PROJECT_ROOT / preview_root
+        labels = ("annotated", "plain")
+        n_env = int(getattr(scene, "num_envs", 1))
+        from collect_data_utils import _copy_camera_rgb
+
+        for env_id in range(n_env):
+            try:
+                rgb = last_preview_rgb.get(env_id)
+                if rgb is None:
+                    rgb = _copy_camera_rgb(scene["side_camera"], env_id)
+                label = labels[env_id] if env_id < len(labels) else f"env{env_id}"
+                out_path = (
+                    preview_root
+                    / label
+                    / str(task_ctx.task_name)
+                    / f"episode_{episode_index:06d}.png"
+                )
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                imageio.imwrite(out_path, rgb)
+                print(f"[INFO] third-person last frame: {out_path}")
+            except Exception as exc:
+                print(f"[WARN] third-person preview failed env_{env_id}: {exc}")
 
 def resolve_task_json(task: str) -> Path:
-    """Map a CLI task name to tasks/rigid or tasks/articulated/<name>.json."""
+    """Map a CLI task name to tasks/wooden_box, tasks/rigid, or tasks/articulated/<name>.json."""
     import json
 
     raw = (task or "").strip()
@@ -1838,6 +2843,7 @@ def resolve_task_json(task: str) -> Path:
         return p.resolve()
     name = p.stem if p.suffix.lower() == ".json" else raw
     direct = [
+        root / "wooden_box" / f"{name}.json",
         root / "rigid" / f"{name}.json",
         root / "articulated" / f"{name}.json",
         root / "rigid" / "task_aloha_agilex" / f"{name}.json",
@@ -1868,15 +2874,24 @@ def resolve_task_json(task: str) -> Path:
     raise SystemExit(f"[ERROR] multiple task jsons match {raw!r}:\n{listed}")
 
 
+_RUN_STARTED = 0.0
+
+
 def main():
     """Main function."""
+    global _RUN_STARTED
+    _RUN_STARTED = time.perf_counter()
     # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
     sim = sim_utils.SimulationContext(sim_cfg)
     # Set main camera
     # sim.set_camera_view([0.2, -1.5, 0.8], [0.5, 0.0, 0.4])
     # sim.set_camera_view([1.8, 0, 0.65], [0.2, 0.0, 0.5])
-    sim.set_camera_view(list(VIEW_CAMERA_EYE), list(VIEW_CAMERA_TARGET))
+    # Two envs sit on +x and -x. Frame both; env_0 (+x) is the one with green marks.
+    if args_cli.num_envs > 1:
+        sim.set_camera_view([2.6, -3.6, 2.3], [0.0, 0.0, 0.45])
+    else:
+        sim.set_camera_view(list(VIEW_CAMERA_EYE), list(VIEW_CAMERA_TARGET))
 
 
     for n in range(5):
@@ -1919,7 +2934,8 @@ def main():
                         if name.startswith("front_cam") or name.startswith("HeadCamera") :
                             stage.RemovePrim(child.GetPath())
 
-        base_scene_cfg = TableTopSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0,replicate_physics=False)
+        spacing = 3.6 if args_cli.num_envs > 1 else 2.0
+        base_scene_cfg = TableTopSceneCfg(num_envs=args_cli.num_envs, env_spacing=spacing, replicate_physics=False)
         backdrop = pick_backdrop_scene() if ENABLE_KITCHEN_USD else None
         if backdrop is not None:
             base_scene_cfg.kitchen = make_backdrop_cfg(backdrop)
@@ -1943,6 +2959,7 @@ def main():
         )
 
         sim.reset()
+        hide_oven_collision_visuals(get_current_stage())
         if task_ctx.apply_visual_textures is not None:
             task_ctx.apply_visual_textures()
         if backdrop is not None and backdrop.get("kitchen_layout"):

@@ -21,7 +21,7 @@ def sample_pos_by_instance(instance_name: str):
     return x, y
 class cup ():
     def __init__(self):
-        self.scale = (0.08,0.08,0.08)
+        self.scale = (0.07,0.07,0.07)
         pass
 
     def import2sim(
@@ -54,7 +54,7 @@ class cup ():
             
             name = instance_name,
             urdf_path=urdf_path,
-            pos = (x1, y1, 0.35),
+            pos = (x1 - 0.1, y1 - 0.1, 0.35),
             rot = self.q_obj_world_wxyz,
             scale = self.scale,
             stiffness=0.0,

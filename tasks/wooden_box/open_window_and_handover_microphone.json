@@ -1,0 +1,39 @@
+{
+  "task_name": "open_window_and_handover_microphone",
+  "assets": [
+    {
+      "id": "window_concept_1",
+      "type": "window_concept",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "window_1",
+      "type": "window",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "microphone_1",
+      "type": "microphone",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "window_1",
+      "atom": "open",
+      "params": {
+        "fraction": 0.5
+      }
+    },
+    {
+      "asset": "microphone_1",
+      "atom": "hand_over",
+      "params": {}
+    }
+  ]
+}

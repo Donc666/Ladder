@@ -5,8 +5,8 @@ ZONES = [
     ((0.40, 0.55), (0, 0.1)),  # zone 0
 
 ]
-target_pos_x = np.random.uniform(0.4,0.5)
-target_pos_y = np.random.uniform(-0.2,0.2)
+target_pos_x = np.random.uniform(0.18,0.2)
+target_pos_y = np.random.uniform(-0.001,0.001)
 target_pos_z = 0.3 
 
 
@@ -42,7 +42,7 @@ class shoebox ():
         cfgs = []
         self.scene_keys_by_env = {}
         for env_id in range(num_envs):
-            self.angle_degree = float(np.random.uniform(0, 90))
+            self.angle_degree = float(np.random.uniform(0, 0.1))
             x1, y1 = sample_pos_by_instance(instance_name)  # 或你自己的分区函数
             r_z = R.from_euler("z", self.angle_degree, degrees=True)
             r_x = R.from_euler("x", 90, degrees=True)

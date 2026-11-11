@@ -30,6 +30,9 @@ class bowl ():
         """Shared stack destination. stack_bottom writes the module globals; any bowl can read them."""
         global target_pos_x, target_pos_y, target_pos_z
         tx, ty, tz = float(target_pos_x), float(target_pos_y), float(target_pos_z)
+        place = getattr(self, "stack_place", None)
+        if place is not None:
+            tx, ty = float(place[0]), float(place[1])
         self.target_pos_x = tx
         self.target_pos_y = ty
         self.target_pos_z = tz
@@ -111,7 +114,7 @@ class bowl ():
 
 
             pose1= [pos[0],pos[1],pos[2]+0.2,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos[0],pos[1],pos[2]+0.1,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos[0],pos[1],pos[2]+0.07,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose3 = [pos[0],pos[1],pos[2]+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose4 = [pos[0],pos[1],pos[2]+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
         
@@ -129,7 +132,84 @@ class bowl ():
 
             ]
             return pose
-    
+
+    def stack_bottom(self, scene, env_id):
+        for envid in range(self.num_envs):
+            self.actual_instance_name = f"{self.scene_key}__env{envid}"
+            asset = scene[self.actual_instance_name]
+            (x, y, z), q_live = live_root_pose_wxyz(asset, env_id)
+            print(f"[bowl] live pose {self.actual_instance_name} xyz={[round(x,3), round(y,3), round(z,3)]}")
+            r_x = R.from_euler("x", 90, degrees=True)
+            r_hand_world = R.from_quat(wxyz_to_xyzw(q_live)) * r_x
+            q_hand_world_wxyz = xyzw_to_wxyz(r_hand_world.as_quat())
+            pos = np.array([x, y, z], dtype=float) + r_hand_world.apply([0.0, 0.07, 0])
+
+            global target_pos_x, target_pos_y, target_pos_z
+            place = getattr(self, "stack_place", None)
+            if place is not None:
+                target_pos_x = float(place[0])
+                target_pos_y = float(place[1])
+            else:
+                target_pos_x = float(np.random.uniform(0.55, 0.6))
+                target_pos_y = float(np.random.uniform(-0.7, -0.71))
+            target_pos_z = float(getattr(self, "stack_table_z", z))
+            self.target_pos_x = target_pos_x
+            self.target_pos_y = target_pos_y
+            self.target_pos_z = target_pos_z
+            tx, ty, tz = target_pos_x, target_pos_y, target_pos_z
+            print(f"[bowl] stack_bottom place target xyz={[round(tx,3), round(ty,3), round(tz,3)]}")
+
+            q = q_hand_world_wxyz
+            pose1 = [pos[0], pos[1], pos[2] + 0.2, q[0], q[1], q[2], q[3]]
+            pose2 = [pos[0], pos[1], pos[2] + 0.08, q[0], q[1], q[2], q[3]]
+            pose3 = [pos[0], pos[1], pos[2] + 0.08, q[0], q[1], q[2], q[3]]
+            pose_lift = [pos[0], pos[1], pos[2] + 0.22, q[0], q[1], q[2], q[3]]
+            pose6 = [tx, ty, tz + 0.22, q[0], q[1], q[2], q[3]]
+            pose7 = [tx, ty, tz + 0.2, q[0], q[1], q[2], q[3]]
+            pose8 = [tx, ty, tz + 0.4, q[0], q[1], q[2], q[3]]
+            executor = "robot_right" if y < 0 else "robot_left"
+            return [
+                {"pose": pose1, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose2, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose3, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose_lift, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose6, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose7, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose8, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+            ]
+
+    def stack_middle(self, scene, env_id):
+        for envid in range(self.num_envs):
+            self.actual_instance_name = f"{self.scene_key}__env{envid}"
+            asset = scene[self.actual_instance_name]
+            (x, y, z), q_live = live_root_pose_wxyz(asset, env_id)
+            print(f"[bowl] live pose {self.actual_instance_name} xyz={[round(x,3), round(y,3), round(z,3)]}")
+            r_x = R.from_euler("x", 90, degrees=True)
+            r_hand_world = R.from_quat(wxyz_to_xyzw(q_live)) * r_x
+            q_hand_world_wxyz = xyzw_to_wxyz(r_hand_world.as_quat())
+            pos = np.array([x, y, z], dtype=float) + r_hand_world.apply([0.0, 0.07, 0])
+            tx, ty, tz = self._stack_place_xyz()
+            print(f"[bowl] stack_middle place target xyz={[round(tx,3), round(ty,3), round(tz,3)]}")
+
+            q = q_hand_world_wxyz
+            pose1 = [pos[0], pos[1], pos[2] + 0.2, q[0], q[1], q[2], q[3]]
+            pose2 = [pos[0], pos[1], pos[2] + 0.08, q[0], q[1], q[2], q[3]]
+            pose3 = [pos[0], pos[1], pos[2] + 0.08, q[0], q[1], q[2], q[3]]
+            pose_lift = [pos[0], pos[1], pos[2] + 0.25, q[0], q[1], q[2], q[3]]
+            pose4 = [tx - 0.03, ty - 0.03, tz + 0.35, q[0], q[1], q[2], q[3]]
+            pose5 = [tx - 0.03, ty - 0.03, tz + 0.17, q[0], q[1], q[2], q[3]]
+            pose6 = [tx - 0.03, ty - 0.03, tz + 0.4, q[0], q[1], q[2], q[3]]
+            executor = "robot_right" if y < 0 else "robot_left"
+            return [
+                {"pose": pose1, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose2, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose3, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose_lift, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose4, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose5, "gripper": "close", "use_obstacle_avoidance": False, "executor": executor},
+                {"pose": pose6, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},
+            ]
+
     def stack_bottom_simultaneously_right(self,scene,env_id):
         for envid in range(self.num_envs):
             self.actual_instance_name = f"{self.scene_key}__env{envid}"

@@ -77,13 +77,17 @@ def copy_visual_assets(src_mesh_dir: Path, dst_mesh_dir: Path):
     visual_obj = src_mesh_dir / "visual.obj"
     if not visual_obj.exists():
         raise FileNotFoundError(f"missing {visual_obj}")
-    shutil.copy2(visual_obj, dst_mesh_dir / "visual.obj")
+    dst_visual = dst_mesh_dir / "visual.obj"
+    if visual_obj.resolve() != dst_visual.resolve():
+        shutil.copy2(visual_obj, dst_visual)
 
     # 可选材质文件
     for pat in ("*.mtl", "material_0.*", "material.*"):
         for f in src_mesh_dir.glob(pat):
             if f.is_file():
-                shutil.copy2(f, dst_mesh_dir / f.name)
+                dst = dst_mesh_dir / f.name
+                if f.resolve() != dst.resolve():
+                    shutil.copy2(f, dst)
 
 
 def process_one_base(base_dir: Path, out_base_dir: Path, threshold: float, max_convex_hull: int, link_name: str):
@@ -105,7 +109,9 @@ def process_one_base(base_dir: Path, out_base_dir: Path, threshold: float, max_c
     copy_visual_assets(src_mesh, dst_mesh)
 
     # 2) 复制原始 collision.obj（可选，保留）
-    shutil.copy2(collision_obj, dst_mesh / "collision.obj")
+    dst_collision = dst_mesh / "collision.obj"
+    if collision_obj.resolve() != dst_collision.resolve():
+        shutil.copy2(collision_obj, dst_collision)
 
     # 3) 清理旧 part_*.obj
     for old in dst_mesh.glob("part_*.obj"):

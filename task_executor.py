@@ -54,7 +54,7 @@ from typing import Any
 
 import torch
 import random
-import numpy as np 
+import numpy as np
 import open3d as o3d
 from curobo.motion_planner import MotionPlanner, MotionPlannerCfg
 from curobo.types import GoalToolPose, JointState
@@ -110,8 +110,8 @@ class TableTopSceneCfg(InteractiveSceneCfg):
     )
 
 
-   
-    
+
+
     robot_right = FRANKA_PANDA_HIGH_PD_CFG.replace(
             prim_path="{ENV_REGEX_NS}/Robot_right",
             init_state=FRANKA_PANDA_HIGH_PD_CFG.init_state.replace(
@@ -159,7 +159,7 @@ def get_goal_pose(planner,step,x1,y1,z1,x3,y3,z3,rot_hand,random_degree):
 
     return goal_pose
 # def move_to_pose(planner,q_start,goal_pose):
-    
+
 #     # config = MotionPlannerCfg.create(
 #     #     robot="franka.yml",  # 确保此文件存在于 curobo 的资产路径中
 #     #     scene_model="collision_test.yml", # 或者根据需s要创建 WorldConfig
@@ -168,7 +168,7 @@ def get_goal_pose(planner,step,x1,y1,z1,x3,y3,z3,rot_hand,random_degree):
 #     # planner.warmup(enable_graph=True, num_warmup_iterations=5)
 
 #     result = planner.plan_pose(goal_pose, q_start)
-    
+
 #     if result == None:
 #         print("规划失败！")
 #         simulation_app.close()
@@ -197,7 +197,7 @@ def _quat_angle_rad(q_wxyz_a, q_wxyz_b) -> float:
     return 2.0 * float(np.arccos(dot))
 
 
-def _ee_reached(robot, goal_pose, pos_threshold=0.08, ori_threshold=0.25) -> bool:
+def _ee_reached(robot, goal_pose, pos_threshold=0.04, ori_threshold=0.25) -> bool:
     """True only when both position and orientation have arrived."""
     ee_link_idx, _ = robot.find_bodies("panda_hand")
     ee_state = robot.data.body_state_w[0, int(ee_link_idx[0])]
@@ -241,13 +241,13 @@ def _merge_mesh_data(mesh_list: list[dict]) -> dict:
 
 # def extract_mesh_for_curobo(stage: Usd.Stage, prim_path: str, include_links: set[str] | None = None) -> dict:
 #     """
-#     Instanceable 穿透防爆版：完美解决 PartNet-Mobility 因实例化/模板化导致 
+#     Instanceable 穿透防爆版：完美解决 PartNet-Mobility 因实例化/模板化导致
 #     IsA(UsdGeom.Mesh) 无法触发、进而引起内存分配崩溃的问题。
 #     """
 #     root_prim = stage.GetPrimAtPath(prim_path)
 #     if not root_prim.IsValid():
 #         raise ValueError(f"【错误】路径 {prim_path} 在 Stage 中不存在！")
-        
+
 #     all_world_vertices = []
 #     all_face_indices = []
 #     vertex_count_offset = 0
@@ -489,8 +489,48 @@ def _plan_pose_all_trajopt_seeds(planner, goal_pose, q_start):
         trajopt.solve_pose = orig
 
 
+def plan_pose_pos_tol(planner, q_start, goal_pose, pos_tol_m):
+    """Plan one pose. A position error within pos_tol_m still counts as success."""
+    saved = []
+    for solver in (getattr(planner, "ik_solver", None), getattr(planner, "trajopt_solver", None)):
+        cfg = getattr(solver, "config", None)
+        if cfg is None or not hasattr(cfg, "position_tolerance"):
+            continue
+        saved.append((cfg, float(cfg.position_tolerance)))
+        cfg.position_tolerance = float(pos_tol_m)
+    try:
+        return plan_pose(planner, q_start, goal_pose)
+    finally:
+        for cfg, old in saved:
+            cfg.position_tolerance = old
+
+
+def plan_pose_ori_tol(planner, q_start, goal_pose, ori_tol_deg):
+    """Plan one pose. During door opening, orientation within ori_tol_deg still succeeds."""
+    if ori_tol_deg is None:
+        return plan_pose(planner, q_start, goal_pose)
+    rad = float(np.deg2rad(float(ori_tol_deg)))
+    saved = []
+    for solver in (getattr(planner, "ik_solver", None), getattr(planner, "trajopt_solver", None)):
+        cfg = getattr(solver, "config", None)
+        if cfg is None or not hasattr(cfg, "orientation_tolerance"):
+            continue
+        saved.append((cfg, float(cfg.orientation_tolerance)))
+        cfg.orientation_tolerance = rad
+    try:
+        return plan_pose(planner, q_start, goal_pose)
+    finally:
+        for cfg, old in saved:
+            cfg.orientation_tolerance = old
+
+
 def plan_pose(planner, q_start, goal_pose):
     """Same waypoint pose. Rank joint seeds by shortest path, including failed ones."""
+    frames = list(getattr(planner, "tool_frames", None) or [])
+    if frames and hasattr(planner, "update_tool_pose_criteria"):
+        from curobo._src.cost.tool_pose_criteria import ToolPoseCriteria
+
+        planner.update_tool_pose_criteria({name: ToolPoseCriteria() for name in frames})
     result = _plan_pose_all_trajopt_seeds(planner, goal_pose, q_start)
     traj = _shortest_same_pose_traj(result)
     if traj is None:
@@ -514,6 +554,91 @@ def build_goal_pose_sequential(planner, arm_name2, pose_7d: list[float]):
         position=torch.tensor([[[[pos]]]], device="cuda", dtype=torch.float32),
         quaternion=torch.tensor([[[[q]]]], device="cuda", dtype=torch.float32),
     )
+def _atom_key(task: dict):
+    if task.get("atom_index") is not None:
+        return task.get("atom_index")
+    return (task.get("grasp_asset"), task.get("atom"), id(task))
+
+
+def hide_finished_atom(planner, arm_name: str, tasks: list[dict], step_idx: int) -> None:
+    """Remove the green line when this arm leaves an atom."""
+    markers = getattr(planner, "scene_markers", None)
+    if markers is None or not tasks or step_idx <= 0:
+        return
+    prev = tasks[step_idx - 1]
+    if step_idx < len(tasks) and _atom_key(tasks[step_idx]) == _atom_key(prev):
+        return
+    shown = markers._shown_atom.get(arm_name)
+    if shown is not None and shown != _atom_key(prev):
+        return
+    markers.clear_arm(arm_name)
+
+
+def show_atom_trajectories(
+    planner, arm_name, tasks, q_start, scene, link_list, move_to_pose_fn, goal_fn=None, *, exclusive: bool = False, shown_key=None
+) -> None:
+    """Draw every waypoint of this atom, replacing the previous atom on this arm.
+
+    Planning here only builds the green line. It does not command the robot.
+    """
+    markers = getattr(planner, "scene_markers", None)
+    if markers is None or not tasks:
+        return
+    key = _atom_key(tasks[0]) if shown_key is None else shown_key
+    if markers._shown_atom.get(arm_name) == key:
+        return
+    from runtime.scene_markers import _ee_world_points, _gripper_asset_poses, extend_cubes_along_tool_z
+
+    if goal_fn is None:
+        goal_fn = build_goal_pose_with_offset
+    q = q_start
+    names = list(planner.joint_names)
+    polylines = []
+    label = f"{tasks[0].get('grasp_asset')}.{tasks[0].get('atom')}"
+    try:
+        for task in tasks:
+            pose = task.get("pose")
+            if not pose:
+                continue
+            apply_table_obstacle(planner, task, scene)
+            if task.get("use_obstacle_avoidance", True):
+                planner.enable_link_collision(enable_collision_links=link_list)
+            else:
+                planner.disable_link_collision(disable_collision_links=link_list)
+            goal = goal_fn(planner=planner, arm_name2=arm_name, pose_7d=list(pose))
+            ori_tol = task.get("ori_tol_deg")
+            pos_tol = task.get("position_tolerance")
+            try:
+                if pos_tol is not None:
+                    traj = plan_pose_pos_tol(planner, q, goal, pos_tol)
+                elif ori_tol is None:
+                    traj = move_to_pose_fn(planner, q, goal)
+                else:
+                    traj = plan_pose_ori_tol(planner, q, goal, ori_tol)
+            except Exception as exc:
+                print(f"[WARN] atom preview failed {arm_name} {label}: {exc}")
+                continue
+            if traj is None:
+                print(f"[WARN] atom preview failed {arm_name} {label}")
+                continue
+            pts = _ee_world_points(planner, traj)
+            if pts is not None and len(pts) >= 2:
+                polylines.append(pts)
+            last = traj[-1].detach().reshape(1, -1)
+            if int(last.shape[-1]) >= len(names):
+                q = JointState.from_position(last[:, : len(names)], joint_names=names)
+    finally:
+        planner._obstacle_mode = None
+    cubes = _gripper_asset_poses(tasks)
+    if len(tasks) == 1 and tasks[0].get("marker_per_waypoint"):
+        pose = tasks[0].get("pose") or []
+        if len(pose) >= 3:
+            cubes = [[float(v) for v in list(pose)[:7]]]
+    cubes = extend_cubes_along_tool_z(polylines, cubes)
+    markers.show_atom(arm_name, key, polylines, cubes, exclusive=exclusive)
+    print(f"[INFO] show atom {arm_name} {label} waypoints={len(tasks)} lines={len(polylines)}")
+
+
 def split_pose_pack(pose_pack: list[dict]) -> tuple[list[dict], list[dict]]:
     left_tasks, right_tasks = [], []
     for t in pose_pack:
@@ -531,7 +656,7 @@ def build_goal_pose_with_offset(planner,arm_name2, pose_7d: list[float]):
     if arm_name2 == "robot_left":
         pos[1] = pos[1] - 0.4
         pos[2] = pos[2] - 0.2
-        
+
     if arm_name2 == "robot_right":
         pos[1] = pos[1] + 0.4
         pos[2] = pos[2] - 0.2
@@ -542,6 +667,232 @@ def build_goal_pose_with_offset(planner,arm_name2, pose_7d: list[float]):
         quaternion=torch.tensor([[[[q]]]], device="cuda", dtype=torch.float32),
     )
     return goal_pose
+def _cuboid_in_base_frame(cube, offset):
+    """Move a world-frame cuboid into the arm base frame used by cuRobo goals."""
+    from curobo._src.geom.types import Cuboid
+
+    ox, oy, oz = offset
+    pose = [float(v) for v in cube.pose]
+    pose[0] -= float(ox)
+    pose[1] -= float(oy)
+    pose[2] -= float(oz)
+    return Cuboid(name=str(cube.name), pose=pose, dims=[float(v) for v in cube.dims])
+
+
+def _mesh_in_base_frame(mesh, offset):
+    from curobo._src.geom.types import Mesh
+
+    ox, oy, oz = (float(v) for v in offset)
+    vertices = [[float(v[0]) - ox, float(v[1]) - oy, float(v[2]) - oz] for v in mesh.vertices]
+    return Mesh(
+        name=str(mesh.name),
+        pose=[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        vertices=vertices,
+        faces=mesh.faces,
+    )
+
+
+def _save_curobo_obstacle_view(offset, cubes, meshes):
+    """Write the exact base-frame obstacles just handed to cuRobo."""
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+    from matplotlib import font_manager
+    from matplotlib.lines import Line2D
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+    cjk_font = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+    if Path(cjk_font).exists():
+        font_manager.fontManager.addfont(cjk_font)
+        plt.rcParams["font.family"] = "sans-serif"
+        plt.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "DejaVu Sans"]
+        plt.rcParams["axes.unicode_minus"] = False
+
+    oy = float(offset[1])
+    arm = "left" if oy > 0.05 else "right" if oy < -0.05 else "base"
+    if meshes and cubes:
+        tag = "microwave_table"
+    elif meshes:
+        tag = "microwave"
+    else:
+        tag = "table"
+    arm_label = {"left": "左臂", "right": "右臂", "base": "基座"}[arm]
+
+    mesh_pack = []
+    for i, mesh in enumerate(meshes):
+        verts = np.asarray(mesh.vertices, dtype=np.float64)
+        faces = np.asarray(mesh.faces, dtype=np.int32)
+        if len(verts) == 0 or len(faces) == 0:
+            continue
+        mesh_pack.append((verts, faces, i))
+    boxes = []
+    for cube in cubes:
+        pose = [float(v) for v in cube.pose]
+        boxes.append((np.array(pose[:3]), np.array([float(v) for v in cube.dims]), str(cube.name)))
+
+    cmap = plt.get_cmap("tab20")
+    fig = plt.figure(figsize=(13.5, 6.4), dpi=140)
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    polys, colors = [], []
+    for verts, faces, i in mesh_pack:
+        col = cmap(i % 20)
+        for tri in faces:
+            polys.append(verts[tri])
+            colors.append(col)
+    if polys:
+        ax.add_collection3d(Poly3DCollection(polys, facecolors=colors, edgecolors=(0, 0, 0, 0.05), linewidths=0.03))
+    span = []
+    for center, dims, name in boxes:
+        h = dims * 0.5
+        corners = np.array([[x, y, z] for x in (center[0] - h[0], center[0] + h[0]) for y in (center[1] - h[1], center[1] + h[1]) for z in (center[2] - h[2], center[2] + h[2])])
+        span.append(corners)
+        for a, b in ((0, 1), (0, 2), (0, 4), (3, 1), (3, 2), (3, 7), (5, 1), (5, 4), (5, 7), (6, 2), (6, 4), (6, 7)):
+            ax.plot([corners[a, 0], corners[b, 0]], [corners[a, 1], corners[b, 1]], [corners[a, 2], corners[b, 2]], color="#2e7d32", lw=1.2)
+    ax.scatter([0], [0], [0], c="black", s=28, depthshade=False)
+    chunks = [verts for verts, _, _ in mesh_pack]
+    chunks.extend(span)
+    if chunks:
+        pts = np.vstack(chunks)
+        lo, hi = pts.min(0), pts.max(0)
+        pad = 0.05
+        ax.set_xlim(lo[0] - pad, hi[0] + pad)
+        ax.set_ylim(lo[1] - pad, hi[1] + pad)
+        ax.set_zlim(lo[2] - pad, hi[2] + pad)
+        ax.set_box_aspect(np.maximum(hi - lo, 0.05))
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_zlabel("z (m)")
+    ax.set_title(f"{arm_label}基座坐标")
+    ax.view_init(elev=24, azim=-125)
+
+    ax2 = fig.add_subplot(1, 2, 2)
+    if mesh_pack:
+        z_cut = float(np.median(np.concatenate([verts[:, 2] for verts, _, _ in mesh_pack])))
+        for verts, faces, i in mesh_pack:
+            col = cmap(i % 20)
+            for tri in faces:
+                p = verts[tri]
+                hits = []
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    za, zb = p[a, 2], p[b, 2]
+                    if (za - z_cut) * (zb - z_cut) < 0:
+                        t = (z_cut - za) / (zb - za)
+                        hits.append(p[a, :2] + t * (p[b, :2] - p[a, :2]))
+                    elif za == z_cut:
+                        hits.append(p[a, :2])
+                if len(hits) >= 2:
+                    ax2.plot([hits[0][0], hits[1][0]], [hits[0][1], hits[1][1]], color=col, lw=1.15)
+        ax2.set_title(f"水平切片  z={z_cut:.3f} m")
+    else:
+        ax2.set_title("水平范围")
+    for center, dims, name in boxes:
+        h = dims * 0.5
+        rect = np.array([
+            [center[0] - h[0], center[1] - h[1]],
+            [center[0] + h[0], center[1] - h[1]],
+            [center[0] + h[0], center[1] + h[1]],
+            [center[0] - h[0], center[1] + h[1]],
+            [center[0] - h[0], center[1] - h[1]],
+        ])
+        ax2.plot(rect[:, 0], rect[:, 1], color="#2e7d32", lw=1.4, ls="--")
+    ax2.scatter([0], [0], c="black", s=28, zorder=5)
+    ax2.set_aspect("equal")
+    ax2.set_xlabel("x (m)")
+    ax2.set_ylabel("y (m)")
+    ax2.grid(True, alpha=0.3)
+    handles = []
+    if mesh_pack:
+        handles.append(Line2D([0], [0], color=cmap(0), lw=6, label=f"碰撞网格 {len(mesh_pack)} 块"))
+    if boxes:
+        handles.append(Line2D([0], [0], color="#2e7d32", lw=1.5, ls="--", label="包围盒"))
+    handles.append(Line2D([0], [0], marker="o", color="black", lw=0, label="基座原点"))
+    ax2.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3)
+    fig.suptitle(
+        f"导入 cuRobo 的障碍物  {arm_label}  offset={tuple(round(float(v), 3) for v in offset)}",
+        fontsize=13,
+    )
+    fig.tight_layout()
+    fig.subplots_adjust(bottom=0.16)
+    out = Path(__file__).resolve().parent / f"obstacle_curobo_{arm}_{tag}.png"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[curobo] obstacle view {out}")
+
+
+def _obstacle_scene_in_base(planner, cubes, meshes=None):
+    from curobo._src.geom.types import SceneCfg
+
+    offset = tuple(getattr(planner, "base_offset", (0.0, 0.0, 0.0)))
+    shifted = [_cuboid_in_base_frame(cube, offset) for cube in cubes]
+    shifted_meshes = [_mesh_in_base_frame(mesh, offset) for mesh in (meshes or [])]
+    for cube in shifted:
+        pose = cube.pose
+        print(
+            f"[curobo] {cube.name} in base frame offset={tuple(round(float(v), 3) for v in offset)} "
+            f"center={[round(float(pose[0]), 3), round(float(pose[1]), 3), round(float(pose[2]), 3)]} "
+            f"dims={[round(float(v), 3) for v in cube.dims]}"
+        )
+    if shifted_meshes:
+        print(
+            f"[curobo] meshes in base frame offset={tuple(round(float(v), 3) for v in offset)} "
+            f"parts={len(shifted_meshes)}"
+        )
+    try:
+        _save_curobo_obstacle_view(offset, shifted, shifted_meshes)
+    except Exception as exc:
+        print(f"[curobo] obstacle preview failed: {exc}")
+    return SceneCfg(
+        cuboid=shifted or None,
+        mesh=shifted_meshes or None,
+    )
+
+
+def apply_table_obstacle(planner, task, scene=None) -> None:
+    """World obstacles only while this waypoint asks for them.
+
+    The table stays one collision cuboid. A microwave request sends each live
+    collision mesh, door pose included, then both are shifted by this arm's base.
+    """
+    empty_scene = getattr(planner, "empty_scene", None)
+    table_scene = getattr(planner, "table_scene", None)
+    if empty_scene is None:
+        return
+    avoid_table = bool(task.get("avoid_table"))
+    avoid_microwave = bool(task.get("avoid_microwave"))
+    if avoid_microwave and avoid_table:
+        want = "microwave+table"
+    elif avoid_microwave:
+        want = "microwave"
+    elif avoid_table:
+        want = "table"
+    else:
+        want = "empty"
+    if getattr(planner, "_obstacle_mode", None) == want:
+        return
+    if want == "empty":
+        planner.update_world(empty_scene)
+    elif want == "table" and table_scene is not None and getattr(table_scene, "cuboid", None):
+        planner.update_world(_obstacle_scene_in_base(planner, list(table_scene.cuboid)))
+    else:
+        sim_scene = scene if scene is not None else getattr(planner, "sim_scene", None)
+        cubes = []
+        meshes = []
+        scan = getattr(planner, "collision_cuboid", None)
+        scan_meshes = getattr(planner, "collision_meshes", None)
+        if sim_scene is not None and scan is not None and avoid_table:
+            cube = scan(sim_scene, "table")
+            if cube is not None:
+                cubes.append(cube)
+        if sim_scene is not None and scan_meshes is not None and avoid_microwave:
+            meshes = list(scan_meshes(sim_scene, "microwave") or [])
+        if not cubes and not meshes:
+            planner.update_world(empty_scene)
+            want = "empty"
+        else:
+            planner.update_world(_obstacle_scene_in_base(planner, cubes, meshes))
+    planner._obstacle_mode = want
+
+
 def tick_one_arm(
     arm,
     scene,
@@ -590,13 +941,35 @@ def tick_one_arm(
             arm.last_sync_done = sync_id
     # 1) 规划
     if arm.joint_pos_des is None:
+        atom_tasks = []
+        atom_key = _atom_key(task)
+        shown_key = None
+        if task.get("marker_per_waypoint"):
+            atom_tasks = [task]
+            shown_key = ("point", atom_key, arm.step_idx)
+        else:
+            for later in arm.tasks[arm.step_idx :]:
+                if _atom_key(later) != atom_key:
+                    break
+                atom_tasks.append(later)
+        show_atom_trajectories(
+            planner, arm_name, atom_tasks, q_start, scene, link_list, move_to_pose_fn, shown_key=shown_key
+        )
+        apply_table_obstacle(planner, task, scene)
         use_oa = task.get("use_obstacle_avoidance", True)
         if use_oa:
             planner.enable_link_collision(enable_collision_links=link_list)
         else:
             planner.disable_link_collision(disable_collision_links=link_list)
         goal_pose = build_goal_pose_with_offset(planner=planner, pose_7d=pose, arm_name2=arm_name)
-        arm.joint_pos_des = move_to_pose_fn(planner, q_start, goal_pose)
+        ori_tol = task.get("ori_tol_deg")
+        pos_tol = task.get("position_tolerance")
+        if pos_tol is not None:
+            arm.joint_pos_des = plan_pose_pos_tol(planner, q_start, goal_pose, pos_tol)
+        elif ori_tol is None:
+            arm.joint_pos_des = move_to_pose_fn(planner, q_start, goal_pose)
+        else:
+            arm.joint_pos_des = plan_pose_ori_tol(planner, q_start, goal_pose, ori_tol)
         arm.need_hold_this_step = (arm.gripper_cmd == "close" and arm.prev_gripper_cmd != "close")
         arm.hold_counter = 0
         arm.waypoint_idx = 0
@@ -609,6 +982,7 @@ def tick_one_arm(
                     f"xyz={[round(float(v), 3) for v in pose[:3]]}"
                 )
                 arm.step_idx += 1
+                hide_finished_atom(planner, arm_name, arm.tasks, arm.step_idx)
                 arm.plan_fail_count = 0
             elif arm.plan_fail_count == 1 or arm.plan_fail_count % 4 == 0:
                 print(
@@ -647,13 +1021,21 @@ def tick_one_arm(
     if arm.waypoint_idx >= arm.joint_pos_des.shape[0]:
         last_q = arm.joint_pos_des[-1]
         dof = len(planner.joint_names)
-        if reach_fn(scene=scene, goal_pose=pose):
+        ori_tol = task.get("ori_tol_deg")
+        reach_kwargs = {}
+        if ori_tol is not None:
+            reach_kwargs["ori_threshold"] = float(np.deg2rad(float(ori_tol)))
+        if task.get("reach_threshold") is not None:
+            reach_kwargs["pos_threshold"] = float(task["reach_threshold"])
+        reached = reach_fn(scene=scene, goal_pose=pose, **reach_kwargs)
+        if reached:
             q_start = JointState.from_position(last_q[:dof].unsqueeze(0), joint_names=planner.joint_names)
             print(
                 f"[TaskRuntime] reached {arm_name} wp {arm.step_idx}/{len(arm.tasks)} "
                 f"gripper={arm.gripper_cmd} xyz={[round(float(v), 3) for v in pose[:3]]}"
             )
             arm.step_idx += 1
+            hide_finished_atom(planner, arm_name, arm.tasks, arm.step_idx)
             arm.joint_pos_des = None
             arm.prev_gripper_cmd = arm.gripper_cmd
             arm.reach_wait = 0
@@ -670,6 +1052,7 @@ def tick_one_arm(
                 )
                 q_start = JointState.from_position(last_q[:dof].unsqueeze(0), joint_names=planner.joint_names)
                 arm.step_idx += 1
+                hide_finished_atom(planner, arm_name, arm.tasks, arm.step_idx)
                 arm.joint_pos_des = None
                 arm.prev_gripper_cmd = arm.gripper_cmd
                 arm.reach_wait = 0

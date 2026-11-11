@@ -84,18 +84,18 @@ class can ():
         self.actual_instance_name = f"{self.scene_key}__env{env_id}"
         print("pick", self.scene_key, "obj_id=", id(self))
         asset = scene[self.actual_instance_name]
-        try:
-            (x, y, z), _ = live_root_pose_wxyz(asset, env_id)
-        except Exception:
-            root_pos = asset.data.root_pos_w[env_id]
-            x, y, z = root_pos[0].item(), root_pos[1].item(), root_pos[2].item()
+        # try:
+        #     (x, y, z), _ = live_root_pose_wxyz(asset, env_id)
+        # except Exception:
+        root_pos = asset.data.root_pos_w[env_id]
+        x, y, z = root_pos[0].item(), root_pos[1].item(), root_pos[2].item()
         print(f"[can] live pose {self.actual_instance_name} xyz={[round(x,3), round(y,3), round(z,3)]}")
 
         q_hand_world_wxyz = rotate_y([0.707, 0, 0.707, 0], 90)
         q_hand_world_wxyz, _ = rotate_z(list(q_hand_world_wxyz), self.angle_degree)
         q = q_hand_world_wxyz
         pose_pre = [x, y, z + 0.3, q[0], q[1], q[2], q[3]]
-        pose_grasp = [x, y, z + 0.13, q[0], q[1], q[2], q[3]]
+        pose_grasp = [x, y, z + 0.11, q[0], q[1], q[2], q[3]]
         pose_lift = [x, y, z + 0.35, q[0], q[1], q[2], q[3]]
         return [
             {"pose": pose_pre, "gripper": "open", "use_obstacle_avoidance": False, "executor": executor},

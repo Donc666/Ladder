@@ -1,45 +1,22 @@
 {
   "task_name": "place_object_basket",
   "assets": [
-
-
-        {
-      "id": "toycar_1",
-      "type": "toycar",
-      "asset_kind": "auto"
-    },
-            {
-      "id": "basket_1",
-      "type": "basket",
-      "asset_kind": "auto"
-    },
-              {
-      "id": "table_1",
-      "type": "table",
-      "asset_kind": "auto"
-    }
-
-
-
-
-
+    {"id": "basket_1", "type": "basket", "asset_kind": "auto", "pos": [0.45, 0.40, 0.35], "urdf_path": "assets/basket/base0/urdf/mobility.urdf"},
+    {"id": "basket_2", "type": "basket", "asset_kind": "auto", "pos": [0.45, -0.40, 0.35], "urdf_path": "assets/basket/base0/urdf/mobility.urdf"},
+    {"id": "toycar_1", "type": "toycar", "asset_kind": "auto", "pos": [0.70, 0.08, 0.35]},
+    {"id": "rubikscube_1", "type": "rubikscube", "asset_kind": "auto", "pos": [0.65, 0.16, 0.35]},
+    {"id": "cup_1", "type": "cup", "asset_kind": "auto", "pos": [0.48, -0.08, 0.35]},
+    {"id": "mug_1", "type": "mug", "asset_kind": "auto", "pos": [0.63, -0.16, 0.35]},
+    {"id": "table_1", "type": "table", "asset_kind": "auto"}
   ],
   "atomic_plan": [
-        {
-      "asset": "toycar_1",
-      "atom": "pick",
-      "params": {}
-    },
-            {
-      "asset": "basket_1",
-      "atom": "into_1",
-      "params": {}
-    },
-                {
-      "asset": "basket_1",
-      "atom": "pick",
-      "params": {}
-    }
-
+    {"asset": "toycar_1", "atom": "pick", "params": {}, "parallel": "arms"},
+    {"asset": "basket_1", "atom": "into_1", "params": {}, "parallel": "arms"},
+    {"asset": "rubikscube_1", "atom": "pick", "params": {}, "parallel": "arms"},
+    {"asset": "basket_1", "atom": "into_2", "params": {}, "parallel": "arms"},
+    {"asset": "cup_1", "atom": "pick", "params": {}, "parallel": "arms"},
+    {"asset": "basket_2", "atom": "into_1", "params": {}, "parallel": "arms"},
+    {"asset": "mug_1", "atom": "pick", "params": {}, "parallel": "arms"},
+    {"asset": "basket_2", "atom": "into_2", "params": {}, "parallel": "arms"}
   ]
 }

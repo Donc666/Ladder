@@ -106,7 +106,7 @@ class phonestand ():
             q_hand_world_xyzw = r_hand_world.as_quat()
             q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
             q_hand_world_wxyz2 = rotate_y(list(q_hand_world_wxyz),60)
-            delta = r_hand_world.apply([0.0, 0.0, -0.09])
+            delta = r_hand_world.apply([0.0, 0.0, -0.11])
             pos = np.array([x, y, z], dtype=float) + delta
 
             

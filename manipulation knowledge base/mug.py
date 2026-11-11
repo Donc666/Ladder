@@ -111,10 +111,10 @@ class mug ():
             
 
 
-            pose1= [self.target_pos_x,self.target_pos_y,pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [self.target_pos_x,self.target_pos_y,pos[2]+0.12,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [self.target_pos_x,self.target_pos_y,pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [self.target_pos_x,self.target_pos_y,pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1= [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos[0],pos[1],pos[2]+0.12,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose4 = [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
         
 
 

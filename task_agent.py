@@ -40,7 +40,7 @@ AssetType = Literal["microwave", "dispenser", "table", "bottle", "storagefurnitu
 Executor = Literal["left", "right", "both", "auto"]
 
 ALLOWED_ATOMS: dict[str, set[str]] = {
-    "microwave": {"open", "right", "on", "into"},
+    "microwave": {"open", "close", "right", "on", "into", "open_release", "into_left"},
     "dispenser": {"put"},
     "table": {},
     "bottle": {
@@ -209,13 +209,16 @@ AssetType = str
 Executor = Literal["left", "right", "both", "auto"]
 
 ALLOWED_ATOMS: dict[str, set[str]] = {
-    "microwave": {"open", "right", "on", "into"},
+    "microwave": {"open", "close", "right", "on", "into", "open_release", "into_left"},
     "dispenser": {"put"},
     "table": set(),
+    "toolbox": set(),
+    "screwdriver": set(),
+    "drill": set(),
     "bottle": {"adjust", "adjust_simultaneously_left", "adjust_simultaneously_right", "pick", "place", "pick_with_left_arm", "shake", "shake_horizontally", "hand_over_left2right", "hand_over_right2left", "pick_simultaneously_left", "pick_simultaneously_right"},
     "storagefurniture": {"open"},
     "laptop": {"open"},
-    "window": {"open"},
+    "window": {"open", "close"},
     "window_concept": set(),
     "hammer": {"pick"},
     "block": {"beat", "hand_over", "stack_top", "stack_middle", "stack_bottom", "pick", "on", "hand_over_left2right"},
@@ -232,7 +235,7 @@ ALLOWED_ATOMS: dict[str, set[str]] = {
     "shoe": {"place", "pick_simultaneously_left", "pick_simultaneously_right"},
     "fan": {"pick"},
     "seal": {"place", "pick"},
-    "cabinet": {"open", "into"},
+    "cabinet": {"open", "into", "close"},
     "door": {"close"},
     "remote": {"pick"},
     "displaystand": {"on"},
@@ -246,7 +249,7 @@ ALLOWED_ATOMS: dict[str, set[str]] = {
     "kitchenpot": {"left", "pick_simultaneously_left", "pick_simultaneously_right"},
     "playingcards": {"place_away"},
     "mouse": {"pick", "left"},
-    "bread": {"pick", "left", "right", "pick_simultaneously_right"},
+    "bread": {"pick", "place", "left", "right", "pick_simultaneously_right"},
     "stapler": {"pick", "right", "press"},
     "toycar": {"pick", "right"},
     "breadbasket": {"into"},
@@ -317,7 +320,7 @@ ALLOWED_ATOMS: dict[str, set[str]] = {
     "partnet_window_concept": set(),
     "foldingchair": {"unfold"},
     "foldingchair_concept": set(),
-    "oven": {"close"},
+    "oven": {"open", "close", "into"},
     "oven_concept": set(),
     "table_drawer": {"open", "close"},
     "table_drawer_concept": set(),
@@ -435,13 +438,13 @@ You must follow these rules and can't ignore any of the rule below:
 9) Allowed asset types are exactly the keys in the atom lists below. Do not invent type names.
 10) Allowed atoms per asset type. An empty set means the asset may appear in assets[] but must not appear in atomic_plan.
 Rigid-body atoms:
-    "microwave": {"open", "right", "on", "into"},
+    "microwave": {"open", "close", "right", "on", "into", "open_release", "into_left"},
     "dispenser": {"put"},
     "table": {},
     "bottle": {"adjust", "adjust_simultaneously_left", "adjust_simultaneously_right", "pick", "place", "pick_with_left_arm", "shake", "shake_horizontally", "hand_over_left2right", "hand_over_right2left", "pick_simultaneously_left", "pick_simultaneously_right"},
     "storagefurniture": {"open"},
     "laptop": {"open"},
-    "window": {"open"},
+    "window": {"open", "close"},
     "window_concept": {},
     "hammer": {"pick"},
     "block": {"beat", "hand_over", "stack_top", "stack_middle", "stack_bottom", "pick", "on", "hand_over_left2right"},
@@ -458,7 +461,7 @@ Rigid-body atoms:
     "shoe": {"place", "pick_simultaneously_left", "pick_simultaneously_right"},
     "fan": {"pick"},
     "seal": {"place", "pick"},
-    "cabinet": {"open", "into"},
+    "cabinet": {"open", "into", "close"},
     "door": {"close"},
     "remote": {"pick"},
     "displaystand": {"on"},
@@ -472,7 +475,7 @@ Rigid-body atoms:
     "kitchenpot": {"left", "pick_simultaneously_left", "pick_simultaneously_right"},
     "playingcards": {"place_away"},
     "mouse": {"pick", "left"},
-    "bread": {"pick", "left", "right", "pick_simultaneously_right"},
+    "bread": {"pick", "place", "left", "right", "pick_simultaneously_right"},
     "stapler": {"pick", "right", "press"},
     "toycar": {"pick", "right"},
     "breadbasket": {"into"},
@@ -522,7 +525,7 @@ Articulated-body atoms:
     "washingmachine": {"open"},
     "partnet_window": {"close"},
     "foldingchair": {"unfold"},
-    "oven": {"close"},
+    "oven": {"open", "close", "into"},
     "table_drawer": {"open", "close"},
     "dishwasher": {"open", "press"},
     "faucet": {"on", "off"},
@@ -697,9 +700,9 @@ def semantic_validate(plan: TaskPlan, instruction: str | None = None) -> None:
                 f"step {i}: 指令要求同时执行，但 atom='{s.atom}' 不包含 simultaneously。"
                 "请使用带 simultaneously 的原子任务（如 pick_simultaneously_left / pick_simultaneously_right）。"
             )
-        if s.atom == "open":
+        if s.atom in ("open", "open_release"):
             open_seen.add(s.asset)
-        if obj_type == "microwave" and s.atom == "into":
+        if obj_type == "microwave" and s.atom in ("into", "into_left"):
             if s.asset not in open_seen:
                 raise ValueError(f"step {i}: microwave.into 之前缺少对 {s.asset} 的 open")
 
@@ -966,9 +969,9 @@ def semantic_validate(plan: TaskPlan, instruction: str | None = None) -> None:
                 f"step {i}: 指令要求同时执行，但 atom='{s.atom}' 不包含 simultaneously。"
                 "请使用带 simultaneously 的原子任务（如 pick_simultaneously_left / pick_simultaneously_right）。"
             )
-        if s.atom == "open":
+        if s.atom in ("open", "open_release"):
             open_seen.add(s.asset)
-        if obj_type == "microwave" and s.atom == "into":
+        if obj_type == "microwave" and s.atom in ("into", "into_left"):
             if s.asset not in open_seen:
                 raise ValueError(f"step {i}: microwave.into 之前缺少对 {s.asset} 的 open")
     # E) table 不能被操作（如果有人写了 table 动作，上面已因 allowed=set 拦截）

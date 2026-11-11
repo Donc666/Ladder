@@ -1,0 +1,84 @@
+{
+  "task_name": "place_shoe_in_box_and_place_cans_in_box",
+  "assets": [
+    {
+      "id": "shoe_1",
+      "type": "shoe",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "shoe_2",
+      "type": "shoe",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "shoebox_1",
+      "type": "shoebox",
+      "asset_kind": "auto",
+      "pos_offset": [0.2, 0.0, 0.0]
+    },
+    {
+      "id": "can_1",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "can_2",
+      "type": "can",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "plasticbox_1",
+      "type": "plasticbox",
+      "asset_kind": "auto",
+      "pos_offset": [-0.07, 0.0, 0.0]
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "shoe_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+    {
+      "asset": "shoe_2",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+    {
+      "asset": "shoebox_1",
+      "atom": "into_1",
+      "params": {}
+    },
+    {
+      "asset": "shoebox_1",
+      "atom": "into_2",
+      "params": {}
+    },
+    {
+      "asset": "can_1",
+      "atom": "pick_simultaneously_left",
+      "params": {}
+    },
+    {
+      "asset": "can_2",
+      "atom": "pick_simultaneously_right",
+      "params": {}
+    },
+    {
+      "asset": "plasticbox_1",
+      "atom": "into_1",
+      "params": {}
+    },
+    {
+      "asset": "plasticbox_1",
+      "atom": "into_2",
+      "params": {}
+    }
+  ]
+}

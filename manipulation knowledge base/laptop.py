@@ -28,7 +28,7 @@ def sample_pos_by_instance(instance_name: str):
     return x, y
 class laptop ():
     def __init__(self):
-        self.scale = (0.1,0.1,0.1)
+        self.scale = (0.2,0.2,0.2)
         pass
 
     def import2sim(
@@ -59,7 +59,7 @@ class laptop ():
             fix_base=True,
             name=self.scene_key,
             urdf_path=urdf_path,
-            pos=(x1, y1, 0.35),
+            pos=(x1, y1, 0.4),
             rot=self.q_obj_world_wxyz,
             scale=self.scale,
             asset_kind = "articulation",

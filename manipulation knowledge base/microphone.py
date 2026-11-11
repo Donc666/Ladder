@@ -3,7 +3,7 @@ from set_interface_try import *
 import random
 
 ZONES = [
-    ((0.4, 0.7), (0.0, 0.7)),  # zone 0
+    ((0.4, 0.7), (0.1, 0.7)),  # zone 0
 ]
 target_pos_x = np.random.uniform(0.4,0.5)
 target_pos_y = np.random.uniform(-0.2,0.2)
@@ -64,7 +64,7 @@ class microphone ():
             fix_base=False,
             name = instance_name,
             urdf_path=urdf_path,
-            pos = (x1, y1, 0.30),
+            pos = (x1, y1, 0.3),
             rot = self.q_obj_world_wxyz,
             scale = self.scale,
             stiffness=0.0,
@@ -126,7 +126,7 @@ class microphone ():
             target_pos_z = 0.5
 
             pose1 = [pos1[0],pos1[1],z+0.2,q_hand_world_wxyz[0],q_hand_world_wxyz[1], q_hand_world_wxyz[2], q_hand_world_wxyz[3]]
-            pose2 = [pos1[0],pos1[1],z+0.05,q_hand_world_wxyz[0],q_hand_world_wxyz[1], q_hand_world_wxyz[2], q_hand_world_wxyz[3]]
+            pose2 = [pos1[0],pos1[1],z+0.11,q_hand_world_wxyz[0],q_hand_world_wxyz[1], q_hand_world_wxyz[2], q_hand_world_wxyz[3]]
             pose3 = [pos1[0],pos1[1],z+0.3,q_hand_world_wxyz[0],q_hand_world_wxyz[1], q_hand_world_wxyz[2], q_hand_world_wxyz[3]]
             pose4 = [target_pos_x,target_pos_y,target_pos_z,handover_rot_right[0], handover_rot_right[1], handover_rot_right[2], handover_rot_right[3]]
             pose5 = [target_pos_x,target_pos_y-0.3,target_pos_z+0.03,handover_rot_left[0], handover_rot_left[1], handover_rot_left[2], handover_rot_left[3]]

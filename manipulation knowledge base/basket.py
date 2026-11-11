@@ -79,185 +79,87 @@ class basket ():
         return cfgs
 
 
-    def into_1(self,scene,env_id):
-    
-        for envid in range(self.num_envs):
-            self.actual_instance_name = f"{self.scene_key}__env{envid}"
-            
-          
-            asset = scene[self.actual_instance_name]
-            root_pos = asset.data.root_pos_w[env_id]      
-     
-    
-    
-            
-            x= root_pos[0].item()
-            y = root_pos[1].item()
-            z = root_pos[2].item()
-           
-    
-            target_pos_x = x 
-            target_pos_y = y 
-            target_pos_z = z
+    def _root_pose(self, scene, env_id):
+        """This env's basket pose. import2sim overwrites the stored yaw per env."""
+        self.actual_instance_name = f"{self.scene_key}__env{env_id}"
+        asset = scene[self.actual_instance_name]
+        pos = np.asarray(asset.data.root_pos_w[env_id].detach().cpu().numpy(), dtype=np.float64)
+        quat = np.asarray(asset.data.root_quat_w[env_id].detach().cpu().numpy(), dtype=np.float64)
+        return pos.reshape(3), quat.reshape(4)
 
-            r_x = R.from_euler('x', 90, degrees=True)
-            r_y = R.from_euler('y',90, degrees=True)
-            r_hand_obj = r_y*r_x    # 先z后x
-            # self.rot1 若是 wxyz，要先转
-            r_obj_world = R.from_quat(wxyz_to_xyzw(self.q_obj_world_wxyz))
-            r_hand_world = r_obj_world * r_hand_obj
-            q_hand_world_xyzw = r_hand_world.as_quat()
-            hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
-            pos_w = [x,y,z]
-            pos1 = pos_w - hand_to_world_rot.apply([0.0,0.08,0.0])
-            pos2 = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
-            q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
-    
+    def _hand_rotation(self, root_quat_wxyz):
+        r_hand_obj = R.from_euler("y", 90, degrees=True) * R.from_euler("x", 90, degrees=True)
+        r_obj = R.from_quat(wxyz_to_xyzw(root_quat_wxyz))
+        r_hand = r_obj * r_hand_obj
+        q_wxyz = [float(v) for v in xyzw_to_wxyz(r_hand.as_quat())]
+        return r_obj, r_hand, q_wxyz
 
-            # q_hand_world_wxyz = rotate_y([0.707, 0, 0.707, 0],90)
-            # q_hand_world_wxyz,_ = rotate_z(current_quat=list(q_hand_world_wxyz),angle_deg=90 + self.angle_degree )   
+    def _into(self, scene, env_id, along_hand_y):
+        pos, quat = self._root_pose(scene, env_id)
+        x, y, z = (float(pos[0]), float(pos[1]), float(pos[2]))
+        _r_obj, r_hand, q = self._hand_rotation(quat)
+        retreat = float(np.random.uniform(0.12, 0.18))
+        if y > 0:
+            # 4 cm along the basket's own wide axis. The opening is only ~10 cm on the narrow side.
+            drop = pos - r_hand.apply([0.0, along_hand_y, 0.0])
+            # Leave toward the table center. A fixed +0.3 m sends the left basket (y=0.4) out to y=0.7.
+            retreat_x, retreat_y = x, y - retreat
+        else:
+            # Same ±4 cm along this basket's wide axis as the left arm. The offset
+            # uses this env's root yaw, so it stays inside the opening. Retreat stays -X.
+            drop = pos - r_hand.apply([0.0, along_hand_y, 0.0])
+            retreat_x, retreat_y = x - retreat, y
+        above = z + 0.50
+        place_z = z + 0.36
+        print(
+            f"[basket] into drop=[{drop[0]:.3f}, {drop[1]:.3f}, {place_z:.3f}] "
+            f"retreat=[{retreat_x:.3f}, {retreat_y:.3f}] root=[{x:.3f}, {y:.3f}, {z:.3f}]"
+        )
 
-            hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
-            # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
-            rand = np.random.uniform(0.3,0.4)
-            pose1= [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos1[0],pos1[1],target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose5 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-                    
-        
-    
-    
-            if y >0:
-                executor = "robot_left"
-            else:
-                executor = "robot_right"
-            pose = [
-                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-              
-    
-            ]
-            return pose
+        def waypoint(px, py, pz, gripper):
+            return {
+                "pose": [float(px), float(py), float(pz), *q],
+                "gripper": gripper,
+                "use_obstacle_avoidance": False,
+                "executor": "robot_left" if y > 0 else "robot_right",
+            }
 
-    def into_2(self,scene,env_id):
-    
-        for envid in range(self.num_envs):
-            self.actual_instance_name = f"{self.scene_key}__env{envid}"
-            
-          
-            asset = scene[self.actual_instance_name]
-            root_pos = asset.data.root_pos_w[env_id]      
-     
-    
-    
-            
-            x= root_pos[0].item()
-            y = root_pos[1].item()
-            z = root_pos[2].item()
-           
-    
-            target_pos_x = x 
-            target_pos_y = y 
-            target_pos_z = z
+        return [
+            waypoint(drop[0], drop[1], above, "close"),
+            waypoint(drop[0], drop[1], place_z, "close"),
+            waypoint(drop[0], drop[1], above, "open"),
+            waypoint(retreat_x, retreat_y, z + 0.45, "open"),
+            waypoint(retreat_x, retreat_y, z + 0.45, "open"),
+        ]
 
-            r_x = R.from_euler('x', 90, degrees=True)
-            r_y = R.from_euler('y',90, degrees=True)
-            r_hand_obj = r_y*r_x    # 先z后x
-            # self.rot1 若是 wxyz，要先转
-            r_obj_world = R.from_quat(wxyz_to_xyzw(self.q_obj_world_wxyz))
-            r_hand_world = r_obj_world * r_hand_obj
-            q_hand_world_xyzw = r_hand_world.as_quat()
-            hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
-            pos_w = [x,y,z]
-            pos1 = pos_w - hand_to_world_rot.apply([0.0,-0.08,0.0])
-            pos2 = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
-            q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
-    
+    def into_1(self, scene, env_id):
+        return self._into(scene, env_id, 0.04)
 
-            # q_hand_world_wxyz = rotate_y([0.707, 0, 0.707, 0],90)
-            # q_hand_world_wxyz,_ = rotate_z(current_quat=list(q_hand_world_wxyz),angle_deg=90 + self.angle_degree )   
+    def into_2(self, scene, env_id):
+        return self._into(scene, env_id, -0.04)
 
-            hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
-            # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
-            rand = np.random.uniform(0.3,0.4)
-            pose1= [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos1[0],pos1[1],target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose5 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+    def pick(self, scene, env_id):
+        print("pick", self.scene_key, "obj_id=", id(self))
+        pos, quat = self._root_pose(scene, env_id)
+        x, y, z = (float(pos[0]), float(pos[1]), float(pos[2]))
+        _r_obj, _r_hand, q = self._hand_rotation(quat)
+        # Opening center. A 0.10–0.14 m shift lands on the frame; the rim is about 0.17 m out.
+        gz = z + 0.30
+        high = z + 0.50
+        print(f"[basket] pick grasp=[{x:.3f}, {y:.3f}, {gz:.3f}] root=[{x:.3f}, {y:.3f}, {z:.3f}]")
+        executor = "robot_left" if y > 0 else "robot_right"
 
-            if y >0:
-                executor = "robot_left"
-            else:
-                executor = "robot_right"
-            pose = [
-                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-              
-    
-            ]
-            return pose
+        def waypoint(px, py, pz, gripper):
+            return {
+                "pose": [float(px), float(py), float(pz), *q],
+                "gripper": gripper,
+                "use_obstacle_avoidance": False,
+                "executor": executor,
+            }
 
-
-    def pick(self,scene,env_id):
-         for envid in range(self.num_envs):
-                self.actual_instance_name = f"{self.scene_key}__env{envid}"       
-                
-                print("pick", self.scene_key, "obj_id=", id(self))
-                asset = scene[self.actual_instance_name]
-                root_pos = asset.data.root_pos_w[env_id]      
-         
-        
-        
-                
-                x= root_pos[0].item()
-                y = root_pos[1].item()
-                z = root_pos[2].item()
-               
-        
-                target_pos_x = x 
-                target_pos_y = y 
-                target_pos_z = z
-        
-        
-                r_x = R.from_euler('x', 90, degrees=True)
-                r_y = R.from_euler('y',90, degrees=True)
-                r_hand_obj = r_y*r_x    # 先z后x
-                # self.rot1 若是 wxyz，要先转
-                r_obj_world = R.from_quat(wxyz_to_xyzw(self.q_obj_world_wxyz))
-                r_hand_world = r_obj_world * r_hand_obj
-                q_hand_world_xyzw = r_hand_world.as_quat()
-                hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
-                pos_w = [x,y,z]
-                pos1 = pos_w - hand_to_world_rot.apply([0.0,0.08,0.0])
-                pos2 = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
-                q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
-
-                rand = np.random.uniform(0,-0.5)
-                pose1= [target_pos_x,target_pos_y,target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-                pose2 = [target_pos_x,target_pos_y,target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-                pose3 = [target_pos_x,target_pos_y,target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-                pose4 = [target_pos_x,target_pos_y,target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-                
-                        
-            
-        
-        
-
-                executor = "robot_right"
-                pose = [
-                    {"pose":pose1,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                    {"pose":pose2,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                    {"pose":pose3,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                    {"pose":pose4,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                    
-                ]
-                return pose
+        return [
+            waypoint(x, y, high, "open"),
+            waypoint(x, y, gz, "open"),
+            waypoint(x, y, high, "close"),
+            waypoint(x, y, high, "close"),
+        ]

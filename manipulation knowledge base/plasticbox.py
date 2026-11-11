@@ -6,7 +6,7 @@ ZONES = [
     ((0.45, 0.47), (0.1, 0.15)),  # zone 0
 
 ]
-target_pos_x = np.random.uniform(0.4,0.5)
+target_pos_x = np.random.uniform(0.35,0.4)
 target_pos_y = np.random.uniform(-0.2,0.2)
 target_pos_z = 0.3 
 
@@ -43,7 +43,7 @@ class plasticbox ():
         cfgs = []
         self.scene_keys_by_env = {}
         for env_id in range(num_envs):
-            self.angle_degree = float(np.random.uniform(0,1))
+            self.angle_degree = float(np.random.uniform(-89,-90))
             x1, y1 = sample_pos_by_instance(instance_name)  # 或你自己的分区函数
             r_z = R.from_euler("z", self.angle_degree, degrees=True)
             r_x = R.from_euler("x", 90, degrees=True)
@@ -121,9 +121,9 @@ class plasticbox ():
             hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
             # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
             rand = np.random.uniform(0.3,0.4)
-            pose1= [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1= [pos1[0],pos1[1],target_pos_z+0.45,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose2 = [pos1[0],pos1[1],target_pos_z+0.2,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos1[0],pos1[1],target_pos_z+0.45,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose4 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose5 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
                     
@@ -135,11 +135,11 @@ class plasticbox ():
             else:
                 executor = "robot_right"
             pose = [
-                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_left"},
-                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_left"},
-                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left"},
-                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left"},
-                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left"},
+                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_left","position_tolerance":0.17},
+                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_left","position_tolerance":0.17},
+                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left","position_tolerance":0.17},
+                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left","position_tolerance":0.17},
+                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_left","position_tolerance":0.17},
               
     
             ]
@@ -186,9 +186,9 @@ class plasticbox ():
             hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
             # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
             rand = np.random.uniform(-0.3,-0.4)
-            pose1= [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1= [pos1[0],pos1[1],target_pos_z+0.45,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose2 = [pos1[0],pos1[1],target_pos_z+0.2,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [pos1[0],pos1[1],target_pos_z+0.5,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos1[0],pos1[1],target_pos_z+0.45,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose4 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose5 = [target_pos_x,target_pos_y+rand,target_pos_z+0.4,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
                     
@@ -198,11 +198,11 @@ class plasticbox ():
 
             executor = "robot_right"
             pose = [
-                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
-                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right"},
+                {"pose":pose1,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right","position_tolerance":0.17},
+                {"pose":pose2,"gripper":"close","use_obstacle_avoidance": False,"executor":"robot_right","position_tolerance":0.17},
+                {"pose":pose3,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right","position_tolerance":0.17},
+                {"pose":pose4,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right","position_tolerance":0.17},
+                {"pose":pose5,"gripper":"open","use_obstacle_avoidance": False,"executor":"robot_right","position_tolerance":0.17},
               
     
             ]

@@ -1,0 +1,18 @@
+{
+  "task_name": "open_window_put_cup_in_cabinet",
+  "assets": [
+    {"id": "window_concept_1", "type": "window_concept", "asset_kind": "auto"},
+    {"id": "window_1", "type": "window", "asset_kind": "articulation"},
+    {"id": "cabinet_concept_1", "type": "cabinet_concept", "asset_kind": "auto"},
+    {"id": "cabinet_1", "type": "cabinet", "asset_kind": "auto"},
+    {"id": "cup_1", "type": "cup", "asset_kind": "auto"},
+    {"id": "table_1", "type": "table", "asset_kind": "auto"}
+  ],
+  "atomic_plan": [
+    {"asset": "window_1", "atom": "open", "params": {"fraction": 0.5}, "parallel": "arms"},
+    {"asset": "cabinet_1", "atom": "open", "params": {}, "parallel": "arms"},
+    {"asset": "cup_1", "atom": "pick", "params": {}, "parallel": "arms"},
+    {"asset": "cabinet_1", "atom": "into", "params": {}, "parallel": "arms"},
+    {"asset": "cabinet_1", "atom": "close", "params": {}, "parallel": "arms"}
+  ]
+}

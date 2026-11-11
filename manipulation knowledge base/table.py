@@ -122,7 +122,7 @@ class table ():
         #   sx = 1.2 / 1.797336 ~= 0.6677
         #   sy = 0.7 / 0.446670 ~= 1.5672
         #   sz ~= 0.6663  (so table overall height ~= 0.74)
-        self.scale_micwave = (0.8, 1.0, 0.5)
+        self.scale_micwave = (1.0, 1.0, 0.5)
         # Set root z so scaled top surface is close to z=0.74.
         self.table_root_pos = (0.6, 0.0, 0.25)
         pass                                                                    

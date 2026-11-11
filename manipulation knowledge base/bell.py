@@ -100,7 +100,7 @@ class bell ():
 
 
             pose1= [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [pos[0],pos[1],pos[2]+0.15,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos[0],pos[1],pos[2]+0.13,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose3 = [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose4 = [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
         

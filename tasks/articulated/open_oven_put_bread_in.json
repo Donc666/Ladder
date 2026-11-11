@@ -1,0 +1,22 @@
+{
+  "task_name": "open_oven_put_bread_in",
+  "assets": [
+    {"id": "oven_concept_1", "type": "oven_concept", "asset_kind": "auto"},
+    {"id": "oven_1", "type": "oven", "asset_kind": "articulation"},
+    {"id": "microwave_concept_1", "type": "microwave_concept", "asset_kind": "auto"},
+    {"id": "microwave_1", "type": "microwave", "asset_kind": "auto"},
+    {"id": "bread_1", "type": "bread", "asset_kind": "auto"},
+    {"id": "bread_2", "type": "bread", "asset_kind": "auto"},
+    {"id": "table_1", "type": "table", "asset_kind": "auto", "pos": [0.6, 0.5, 0.25], "scale": [0.8, 0.8, 0.5]}
+  ],
+  "atomic_plan": [
+    {"asset": "microwave_1", "atom": "open_release", "params": {}, "parallel": "long"},
+    {"asset": "bread_2", "atom": "pick", "params": {}, "parallel": "long"},
+    {"asset": "microwave_1", "atom": "into_left", "params": {}, "parallel": "long"},
+    {"asset": "oven_1", "atom": "open", "params": {"fraction": 1.0}, "parallel": "long"},
+    {"asset": "bread_1", "atom": "pick", "params": {}, "parallel": "long"},
+    {"asset": "oven_1", "atom": "into", "params": {}, "parallel": "long"},
+    {"asset": "microwave_1", "atom": "close", "params": {}, "parallel": "close"},
+    {"asset": "oven_1", "atom": "close", "params": {"fraction": 1.0}, "parallel": "close"}
+  ]
+}

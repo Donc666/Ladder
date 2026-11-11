@@ -1,0 +1,42 @@
+{
+  "task_name": "place_a2b_right_and_grap_roller",
+  "assets": [
+    {
+      "id": "toycar_1",
+      "type": "toycar",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "rubikscube_1",
+      "type": "rubikscube",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "roller_1",
+      "type": "roller",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "rubikscube_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "toycar_1",
+      "atom": "right",
+      "params": {}
+    },
+    {
+      "asset": "roller_1",
+      "atom": "grap_simulataneously",
+      "params": {}
+    }
+  ]
+}

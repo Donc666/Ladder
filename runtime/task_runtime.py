@@ -24,8 +24,14 @@ from task_executor import (
     ArmExecState,
     build_goal_pose_sequential,
     build_goal_pose_with_offset,
+    apply_table_obstacle,
+    plan_pose_ori_tol,
+    plan_pose_pos_tol,
+    hide_finished_atom,
+    show_atom_trajectories,
     split_pose_pack,
     tick_one_arm,
+    _atom_key,
 )
 
 
@@ -39,8 +45,8 @@ class TaskRuntimeCfg:
     hold_frames: int = 40
     plan_every_n: int = 2
     ee_link: str = "panda_hand"
-    reach_threshold: float = 0.08
-    ori_threshold: float = 0.25
+    reach_threshold: float = 0.04
+    ori_threshold: float = math.radians(10.0)
     # Traj finished but EE never entered the reach ball: skip so the atom cannot hang.
     reach_wait_frames: int = 120
     # Drop-test hold if the object never lifts.
@@ -63,6 +69,8 @@ class TaskRuntimeCfg:
     knock_confirm_frames: int = 20
     max_adjust_retries: int = 12
     knock_settle_ticks: int = 80
+    # Fallen-bottle watch and the inserted adjust. Off until turned back on.
+    bottle_watch_enabled: bool = False
     # After adjust/place, wait this many ticks so a tipping bottle is seen before the next atom.
     place_watch_frames: int = 80
     # Fallen when the bottle long axis is at least this far from world-up.
@@ -119,8 +127,10 @@ class TaskRuntime:
         cfg: TaskRuntimeCfg | None = None,
         grasp_cfg: GraspMonitorCfg | None = None,
         reach_fns: dict[str, Callable] | None = None,
+        scene_markers=None,
     ):
         self.scene = scene
+        self.scene_markers = scene_markers
         self.world = world
         self.compiler = compiler
         self.atomic_plan = list(atomic_plan)
@@ -432,6 +442,15 @@ class TaskRuntime:
             ).unsqueeze(0)
             robot.set_joint_position_target(target, joint_ids=ids[:n])
 
+    def _mark_interaction_points(self, waypoints) -> None:
+        markers = getattr(self, "scene_markers", None)
+        if markers is None:
+            return
+        try:
+            markers.add_waypoints(waypoints)
+        except Exception as exc:
+            print(f"[WARN] interaction markers failed: {exc}")
+
     def _plan_safe(self, planner, q_start, goal_pose):
         try:
             return self.move_to_pose_fn(planner, q_start, goal_pose)
@@ -524,6 +543,7 @@ class TaskRuntime:
                 f"{compiled.asset_id}.{compiled.atom} active={active} idle={idle} n={len(pack)}"
             )
         self.compiled = compiled
+        self._mark_interaction_points(compiled.waypoints)
         self._reset_executors()
         self._remember_rest_heights(compiled)
         self._restore_grasp_mass(reason=f"recompile:{reason}", asset_ids=compiled.grasp_assets)
@@ -1055,6 +1075,8 @@ class TaskRuntime:
         self._tilt_streak.clear()
 
     def _knocked_bottle_id(self, during_atom: bool = True) -> str | None:
+        if not self.cfg.bottle_watch_enabled:
+            return None
         if self._ignore_fallen_bottle():
             return None
         if self.tick_count < self.cfg.knock_settle_ticks:
@@ -1307,6 +1329,7 @@ class TaskRuntime:
             simultaneous=True,
             grouped_assets=[asset_id] + extra,
         )
+        self._mark_interaction_points(pack)
         self._adjust_idle_arm = idle
         self._reset_executors()
         left, right = split_pose_pack(pack)
@@ -1700,6 +1723,8 @@ class TaskRuntime:
 
     def _should_watch_bottle_after_atom(self) -> bool:
         """After a release or a push-like atom, wait and see if the bottle tipped."""
+        if not self.cfg.bottle_watch_enabled:
+            return False
         if self._ignore_fallen_bottle():
             return False
         if self.compiled is None or not self._bottle_ids():
@@ -2246,10 +2271,21 @@ class TaskRuntime:
             return "robot_right"
         return "robot_right"
 
-    def _reached(self, arm_name: str, pose: list[float]) -> bool:
+    def _reached(
+        self,
+        arm_name: str,
+        pose: list[float],
+        ori_threshold: float | None = None,
+        pos_threshold: float | None = None,
+    ) -> bool:
         fn = self.reach_fns.get(arm_name)
         if fn is not None:
-            return bool(fn(scene=self.scene, goal_pose=pose))
+            kwargs = {}
+            if ori_threshold is not None:
+                kwargs["ori_threshold"] = ori_threshold
+            if pos_threshold is not None:
+                kwargs["pos_threshold"] = pos_threshold
+            return bool(fn(scene=self.scene, goal_pose=pose, **kwargs))
         robot = self.robots[arm_name]
         try:
             ids, _ = robot.find_bodies(self.cfg.ee_link)
@@ -2260,14 +2296,16 @@ class TaskRuntime:
         state = robot.data.body_state_w[idx, bid]
         cur = state[0:3]
         tgt = torch.tensor(pose[:3], device=cur.device, dtype=cur.dtype)
-        if torch.norm(cur - tgt).item() >= self.cfg.reach_threshold:
+        limit_pos = self.cfg.reach_threshold if pos_threshold is None else float(pos_threshold)
+        if torch.norm(cur - tgt).item() >= limit_pos:
             return False
         if len(pose) < 7:
             return True
         qwxyz = [float(state[3 + i].item()) for i in range(4)]
         dot = abs(sum(qwxyz[i] * float(pose[3 + i]) for i in range(4)))
         ang = 2.0 * math.acos(min(1.0, dot))
-        return ang < float(self.cfg.ori_threshold)
+        limit = self.cfg.ori_threshold if ori_threshold is None else ori_threshold
+        return ang < float(limit)
 
     def _tick_sequential(self) -> TickStatus:
         assert self.compiled is not None
@@ -2300,13 +2338,48 @@ class TaskRuntime:
         pose = list(task["pose"])
 
         if self._seq.joint_pos_des is None:
+            atom_tasks = []
+            atom_key = _atom_key(task)
+            shown_key = None
+            if task.get("marker_per_waypoint"):
+                atom_tasks = [task]
+                shown_key = ("point", atom_key, self._seq.step)
+            else:
+                for later in pack[self._seq.step :]:
+                    if _atom_key(later) != atom_key:
+                        break
+                    atom_tasks.append(later)
+            show_atom_trajectories(
+                planner,
+                arm_name,
+                atom_tasks,
+                self.q_starts[arm_name],
+                self.scene,
+                self.link_list,
+                self._plan_safe,
+                goal_fn=build_goal_pose_sequential,
+                exclusive=True,
+                shown_key=shown_key,
+            )
+            apply_table_obstacle(planner, task, self.scene)
             use_oa = task.get("use_obstacle_avoidance", True)
             if use_oa:
                 planner.enable_link_collision(enable_collision_links=self.link_list)
             else:
                 planner.disable_link_collision(disable_collision_links=self.link_list)
             goal = build_goal_pose_sequential(planner=planner, arm_name2=arm_name, pose_7d=pose)
-            self._seq.joint_pos_des = self._plan_safe(planner, self.q_starts[arm_name], goal)
+            ori_tol = task.get("ori_tol_deg")
+            pos_tol = task.get("position_tolerance")
+            if pos_tol is not None:
+                self._seq.joint_pos_des = plan_pose_pos_tol(
+                    planner, self.q_starts[arm_name], goal, pos_tol
+                )
+            elif ori_tol is None:
+                self._seq.joint_pos_des = self._plan_safe(planner, self.q_starts[arm_name], goal)
+            else:
+                self._seq.joint_pos_des = plan_pose_ori_tol(
+                    planner, self.q_starts[arm_name], goal, ori_tol
+                )
             self._seq.need_hold_this_step = self._seq.gripper_cmd == "close" and self._seq.prev_gripper_cmd != "close"
             self._seq.hold_counter = 0
             self._seq.waypoint_idx = 0
@@ -2332,6 +2405,7 @@ class TaskRuntime:
                     else:
                         print(f"[TaskRuntime] skip waypoint {self._seq.step} after plan failures")
                         self._seq.step += 1
+                        hide_finished_atom(planner, arm_name, pack, self._seq.step)
                         self._seq.plan_fail_count = 0
                 return "running"
             self._seq.plan_fail_count = 0
@@ -2353,7 +2427,12 @@ class TaskRuntime:
             else:
                 self._seq.waypoint_idx += 1
             self._seq.reach_wait = 0
-        elif self._reached(arm_name, pose):
+        elif self._reached(
+            arm_name,
+            pose,
+            None if task.get("ori_tol_deg") is None else math.radians(float(task["ori_tol_deg"])),
+            None if task.get("reach_threshold") is None else float(task["reach_threshold"]),
+        ):
             last_q = traj[-1]
             dof = len(planner.joint_names)
             print(
@@ -2366,6 +2445,7 @@ class TaskRuntime:
                 joint_names=planner.joint_names,
             )
             self._seq.step += 1
+            hide_finished_atom(planner, arm_name, pack, self._seq.step)
             self._seq.joint_pos_des = None
             self._seq.prev_gripper_cmd = self._seq.gripper_cmd
             self._seq.reach_wait = 0
@@ -2391,6 +2471,7 @@ class TaskRuntime:
                     joint_names=planner.joint_names,
                 )
                 self._seq.step += 1
+                hide_finished_atom(planner, arm_name, pack, self._seq.step)
                 self._seq.joint_pos_des = None
                 self._seq.prev_gripper_cmd = self._seq.gripper_cmd
                 self._seq.reach_wait = 0
@@ -2437,7 +2518,12 @@ class TaskRuntime:
                 robot=self.robots["robot_left"],
                 q_start=self.q_starts["robot_left"],
                 move_to_pose_fn=self._plan_safe,
-                reach_fn=self.reach_fns.get("robot_left", lambda scene, goal_pose: self._reached("robot_left", goal_pose)),
+                reach_fn=self.reach_fns.get(
+                    "robot_left",
+                    lambda scene, goal_pose, ori_threshold=None: self._reached(
+                        "robot_left", goal_pose, ori_threshold
+                    ),
+                ),
                 link_list=self.link_list,
                 finger_indices=self.finger_indices["robot_left"],
                 finger_open_target=self.finger_open["robot_left"],
@@ -2460,7 +2546,12 @@ class TaskRuntime:
                 robot=self.robots["robot_right"],
                 q_start=self.q_starts["robot_right"],
                 move_to_pose_fn=self._plan_safe,
-                reach_fn=self.reach_fns.get("robot_right", lambda scene, goal_pose: self._reached("robot_right", goal_pose)),
+                reach_fn=self.reach_fns.get(
+                    "robot_right",
+                    lambda scene, goal_pose, ori_threshold=None: self._reached(
+                        "robot_right", goal_pose, ori_threshold
+                    ),
+                ),
                 link_list=self.link_list,
                 finger_indices=self.finger_indices["robot_right"],
                 finger_open_target=self.finger_open["robot_right"],

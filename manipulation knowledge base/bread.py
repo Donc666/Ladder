@@ -2,7 +2,7 @@ from my_utils import *
 from set_interface_try import *
 import random
 ZONES = [
-     ((0.53, 0.535), (-0.48,- 0.49)),  #no left func
+     ((0.4, 0.7), (-0.2,- 0.65)),  #no left func
     ((0.46, 0.465), (-0.48, -0.49)), #have left func
     
 
@@ -14,6 +14,12 @@ target_pos_z = 0.3
 
 
 def sample_pos_by_instance(instance_name: str):
+    name = str(instance_name)
+    # bread_1 is about 0.07 m further in +X than bread_2.
+    if name.endswith("_2"):
+        return random.uniform(0.52, 0.54), random.uniform(0.09, 0.11)
+    if name.endswith("_1"):
+        return random.uniform(0.59, 0.61), random.uniform(-0.11, -0.09)
     # 从名字里取最后数字，如 my_bowl_bowl_3 -> 3
     idx = int(instance_name.split("_")[-1]) - 1
     xr, yr = ZONES[idx % len(ZONES)]
@@ -75,7 +81,7 @@ class bread ():
             restitution= 0,
             compliant_contact_damping=0,
             compliant_contact_stiffness=0,
-            mass = 0.15
+            mass = 0.05
         )
 
         return [cfg]
@@ -107,7 +113,14 @@ class bread ():
         print(f"[bread] import-wrap pose {self.actual_instance_name} xyz={[round(x, 3), round(y, 3), round(z, 3)]}")
         return (x, y, z), quat
 
-    def pick(self,scene,env_id):
+    def pick(self, scene, env_id):
+        """Grasp and lift only. The old pick also carried the bread to a place pose."""
+        placed = self.place(scene, env_id)
+        if not placed:
+            return placed
+        return list(placed[:3])
+
+    def place(self,scene,env_id):
     
         for envid in range(self.num_envs):
             self.actual_instance_name = f"{self.scene_key}__env{envid}"   
@@ -139,9 +152,10 @@ class bread ():
             hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
             # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
             rand = np.random.uniform(0,-0.5)
-            pose1= [target_pos_x,target_pos_y,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [target_pos_x,target_pos_y,target_pos_z+0.04,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [target_pos_x,target_pos_y,target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            x_shift = hand_to_world_rot.apply([0.01, 0.0, 0.0])
+            pose1= [target_pos_x + x_shift[0],target_pos_y + x_shift[1],target_pos_z+0.25 + x_shift[2],q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [target_pos_x + x_shift[0],target_pos_y + x_shift[1],target_pos_z+0.04 + x_shift[2],q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [target_pos_x + x_shift[0],target_pos_y + x_shift[1],target_pos_z+0.3 + x_shift[2],q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
             pose4 = [target_pos_x2,0.6,target_pos_z2+0.25,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
             pose5 = [target_pos_x2,0.6,target_pos_z2+0.08,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
             pose6 = [target_pos_x2,0.6,target_pos_z2+0.25,hand_rot[0], hand_rot[1],hand_rot[2],hand_rot[3]]
@@ -150,17 +164,25 @@ class bread ():
         
     
     
-            if y >0:
+            key = str(getattr(self, "scene_key", ""))
+            if key.endswith("_2"):
+                executor = "robot_left"
+            elif key.endswith("_1"):
+                executor = "robot_right"
+            elif y > 0:
                 executor = "robot_left"
             else:
                 executor = "robot_right"
+            # After the oven opens, bread_1's move to above the bread avoids the table.
+            # Later pick steps do not.
+            avoid_above = False
             pose = [
-                {"pose":pose1,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose2,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose1,"gripper":"open","use_obstacle_avoidance": avoid_above,"avoid_table": avoid_above,"executor":executor},
+                {"pose":pose2,"gripper":"open","use_obstacle_avoidance": False,"avoid_table": False,"executor":executor},
                 {"pose":pose3,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose4,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose5,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose6,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
+                {"pose":pose6,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
 
               
     

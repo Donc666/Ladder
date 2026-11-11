@@ -27,7 +27,7 @@ def sample_pos_by_instance(instance_name: str):
     return x, y
 class rubikscube ():
     def __init__(self):
-        self.scale = (0.03,0.03,0.03)
+        self.scale = (0.025,0.025,0.025)
         pass
 
     def import2sim(
@@ -113,7 +113,7 @@ class rubikscube ():
             q_hand_world_xyzw = r_hand_world.as_quat()
             hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
             pos_w = [x,y,z]
-            pos_pre = pos_w - hand_to_world_rot.apply([0.0,0,0.2])
+            pos = pos_w - hand_to_world_rot.apply([-0.02,0,0.0])
             pos_contact = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
             q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
     
@@ -124,11 +124,11 @@ class rubikscube ():
             hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
             # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
             rand = np.random.uniform(0,-0.5)
-            pose1= [target_pos_x,target_pos_y,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [target_pos_x,target_pos_y,target_pos_z+0.09,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [0.3,-0.11,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [0.7,-0.11,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose5 = [0.7,0,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1= [pos[0],pos[1],target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos[0],pos[1],target_pos_z+0.05,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos[0],pos[1],target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose4 = [pos[0],pos[1],target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            # pose5 = [0.7,0,target_pos_z+0.25,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
 
                     
         
@@ -143,7 +143,7 @@ class rubikscube ():
                 {"pose":pose2,"gripper":"open","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose3,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
                 {"pose":pose4,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
-                {"pose":pose5,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
+                # {"pose":pose5,"gripper":"close","use_obstacle_avoidance": False,"executor":executor},
               
     
             ]

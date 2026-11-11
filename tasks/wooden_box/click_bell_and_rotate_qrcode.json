@@ -1,0 +1,37 @@
+{
+  "task_name": "click_bell_and_rotate_qrcode",
+  "assets": [
+    {
+      "id": "bell_1",
+      "type": "bell",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "paymentsign_1",
+      "type": "paymentsign",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bell_1",
+      "atom": "click",
+      "params": {}
+    },
+    {
+      "asset": "paymentsign_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "paymentsign_1",
+      "atom": "rotate",
+      "params": {}
+    }
+  ]
+}

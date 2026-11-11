@@ -1,0 +1,52 @@
+{
+  "task_name": "place_phone_stand_and_place_object_scale",
+  "assets": [
+    {
+      "id": "phone_1",
+      "type": "phone",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "phonestand_1",
+      "type": "phonestand",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "stapler_1",
+      "type": "stapler",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "electronicscale_1",
+      "type": "electronicscale",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "phone_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "phonestand_1",
+      "atom": "on",
+      "params": {}
+    },
+    {
+      "asset": "stapler_1",
+      "atom": "pick",
+      "params": {}
+    },
+    {
+      "asset": "electronicscale_1",
+      "atom": "on",
+      "params": {}
+    }
+  ]
+}

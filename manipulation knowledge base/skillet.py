@@ -2,7 +2,7 @@ from my_utils import *
 from set_interface_try import *
 import random
 ZONES = [
-    ((0.6, 0.61), (0.45, 0.455)),  # zone 0
+    ((0.4, 0.65), (0.4, 0.55)),  # zone 0
     ((0.40, 0.7), (-0.3, -0.7)),  # zone 1
 ]
 target_pos_x = np.random.uniform(0.4,0.5)
@@ -107,8 +107,8 @@ class skillet ():
             pose1= [pos[0],pos[1],pos[2]+0.3,q_hand_world_wxyz2[0], q_hand_world_wxyz2[1],q_hand_world_wxyz2[2],q_hand_world_wxyz2[3]]
             pose2 = [pos[0],pos[1],pos[2]+0.05,q_hand_world_wxyz2[0], q_hand_world_wxyz2[1],q_hand_world_wxyz2[2],q_hand_world_wxyz2[3]]
             pose3 = [pos[0],pos[1],pos[2]+0.4,q_hand_world_wxyz2[0], q_hand_world_wxyz2[1],q_hand_world_wxyz2[2],q_hand_world_wxyz2[3]]
-            pose4 = [target_pos_x,target_pos_y,target_pos_z+0.1,q_hand_world_wxyz3[0], q_hand_world_wxyz3[1],q_hand_world_wxyz3[2],q_hand_world_wxyz3[3]]
-            pose5 = [target_pos_x,target_pos_y,target_pos_z+0.1,q_hand_world_wxyz3[0], q_hand_world_wxyz3[1],q_hand_world_wxyz3[2],q_hand_world_wxyz3[3]]
+            pose4 = [target_pos_x,target_pos_y,target_pos_z+0.02,q_hand_world_wxyz3[0], q_hand_world_wxyz3[1],q_hand_world_wxyz3[2],q_hand_world_wxyz3[3]]
+            pose5 = [target_pos_x,target_pos_y,target_pos_z+0.02,q_hand_world_wxyz3[0], q_hand_world_wxyz3[1],q_hand_world_wxyz3[2],q_hand_world_wxyz3[3]]
         
 
 
@@ -197,7 +197,7 @@ class skillet ():
             target_pos_z = 0.5
 
             pose1= [target_pos_x,target_pos_y-0.1,target_pos_z+0.35,q_hand_world_wxyz4[0], q_hand_world_wxyz4[1],q_hand_world_wxyz4[2],q_hand_world_wxyz4[3]]
-            pose2 = [target_pos_x,target_pos_y-0.1,target_pos_z+0.25,q_hand_world_wxyz4[0], q_hand_world_wxyz4[1],q_hand_world_wxyz4[2],q_hand_world_wxyz4[3]]
+            pose2 = [target_pos_x,target_pos_y-0.1,target_pos_z+0.18,q_hand_world_wxyz4[0], q_hand_world_wxyz4[1],q_hand_world_wxyz4[2],q_hand_world_wxyz4[3]]
             pose3 = [target_pos_x,target_pos_y-0.1,target_pos_z+0.35,q_hand_world_wxyz4[0], q_hand_world_wxyz4[1],q_hand_world_wxyz4[2],q_hand_world_wxyz4[3]]
             pose4 = [target_pos_x,target_pos_y-0.1,target_pos_z+0.35,q_hand_world_wxyz4[0], q_hand_world_wxyz4[1],q_hand_world_wxyz4[2],q_hand_world_wxyz4[3]]
         

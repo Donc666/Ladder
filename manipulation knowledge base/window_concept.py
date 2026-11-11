@@ -3,9 +3,26 @@ from set_interface_try import *
 import random
 import xml.etree.ElementTree as ET
 
-# Shared yaw: PartNet window uses this, concept template is offset by +90 deg.
-random_degree2 = np.random.uniform(-20,20)
+# Real window yaw. The concept URDF's fixed joint is only Rx(90); the PartNet
+# window is Rx(90) then Rz(-90), so the concept root is yawed 90 deg less to
+# make the glass face the same way.
+random_degree2 = np.random.uniform(-20, 20)
 random_degree = 90.0 + random_degree2
+# Concept frame origin is z=0.715 in the URDF. At scale 0.35 that lifts the
+# mesh 0.25 m above the root, so the concept root is spawned that much lower.
+_CONCEPT_FRAME_LIFT = 0.715 * 0.35
+WINDOW_SPAWN_XYZ = (
+    float(np.random.uniform(0.40, 0.55)),
+    float(np.random.uniform(0.70, 0.78)),
+    0.70,
+)
+# Park XY far from the arms. Height stays tied to the real window so the
+# handle mapping still copies the right z.
+CONCEPT_SPAWN_XYZ = (
+    1000.0,
+    1000.0,
+    WINDOW_SPAWN_XYZ[2] - _CONCEPT_FRAME_LIFT,
+)
 CONCEPT_URDF_PATH = None
 CONCEPT_URDF_FALLBACK = str(
     PARTNET_CONCEPT_ROOT / "Window" / "d62e7ca4-856b-4fcd-a578-ff2c58d9c6f9" / "Window.urdf"
@@ -46,7 +63,7 @@ class window_concept:
     def import2sim(self, urdf_path: str, instance_name: str, num_envs):
         global CONCEPT_URDF_PATH
         self.num_envs = num_envs
-        self.random_degree = random_degree
+        self.random_degree = float(random_degree2)
         resolved_concept_urdf, model_id = resolve_concept_urdf_path(
             source_urdf_path=urdf_path,
             concept_root=str(PARTNET_CONCEPT_ROOT),
@@ -60,11 +77,16 @@ class window_concept:
         self.concept_urdf_path = resolved_concept_urdf
         r_z = R.from_euler("z", self.random_degree, degrees=True)
         rot_concept = xyzw_to_wxyz(r_z.as_quat())
-        print(f"[window_concept] paired concept for {urdf_path} -> {resolved_concept_urdf}")
+        cx, cy, cz = CONCEPT_SPAWN_XYZ
+        print(
+            f"[window_concept] paired concept for {urdf_path} -> {resolved_concept_urdf} "
+            f"pos=({cx:.2f},{cy:.2f},{cz:.2f}) yaw={self.random_degree:.1f} "
+            f"(real yaw={float(random_degree):.1f})"
+        )
         concept_cfg = AssetCfg(
             name="my_concept_window",
             urdf_path=resolved_concept_urdf,
-            pos=(1000, 1000, 0.22),
+            pos=(cx, cy, cz),
             rot=rot_concept,
             scale=self.scale,
             asset_kind="articulation",

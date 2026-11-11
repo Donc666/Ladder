@@ -1,0 +1,10 @@
+{
+  "task_name": "toolbox_with_tools",
+  "assets": [
+    {"id": "toolbox_1", "type": "toolbox", "asset_kind": "auto"},
+    {"id": "screwdriver_1", "type": "screwdriver", "asset_kind": "auto"},
+    {"id": "drill_1", "type": "drill", "asset_kind": "auto"},
+    {"id": "table_1", "type": "table", "asset_kind": "auto", "pos": [0.6, 0.0, 0.25], "scale": [0.8, 1.2, 0.5]}
+  ],
+  "atomic_plan": []
+}

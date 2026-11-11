@@ -1,0 +1,27 @@
+{
+  "task_name": "adjust_bottle_and_shake",
+  "assets": [
+    {
+      "id": "bottle_1",
+      "type": "bottle",
+      "asset_kind": "auto"
+    },
+    {
+      "id": "table_1",
+      "type": "table",
+      "asset_kind": "auto"
+    }
+  ],
+  "atomic_plan": [
+    {
+      "asset": "bottle_1",
+      "atom": "adjust_simultaneously_right",
+      "params": {}
+    },
+    {
+      "asset": "bottle_1",
+      "atom": "shake",
+      "params": {}
+    }
+  ]
+}

@@ -107,7 +107,7 @@ class toycar ():
             q_hand_world_xyzw = r_hand_world.as_quat()
             hand_to_world_rot = R.from_quat(q_hand_world_xyzw)
             pos_w = [x,y,z]
-            pos_pre = pos_w - hand_to_world_rot.apply([0.0,0,0.2])
+            pos = pos_w - hand_to_world_rot.apply([-0.02,0,0.0])
             pos_contact = pos_w - hand_to_world_rot.apply([0.0,0,0.07])
             q_hand_world_wxyz = xyzw_to_wxyz(q_hand_world_xyzw)
     
@@ -118,10 +118,10 @@ class toycar ():
             hand_rot = rotate_y([0.707, 0, 0.707, 0],90)
             # q_hand_world_wxyz2= rotate_y([0.707, 0, 0.707, 0],90)
             rand = np.random.uniform(0,-0.5)
-            pose1= [target_pos_x,target_pos_y,target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose2 = [target_pos_x,target_pos_y,target_pos_z+0.05,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose3 = [target_pos_x,target_pos_y,target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
-            pose4 = [target_pos_x,target_pos_y,target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose1= [pos[0],pos[1],target_pos_z+0.3,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose2 = [pos[0],pos[1],target_pos_z+0.05,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose3 = [pos[0],pos[1],target_pos_z+0.2,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
+            pose4 = [pos[0],pos[1],target_pos_z+0.2,q_hand_world_wxyz[0], q_hand_world_wxyz[1],q_hand_world_wxyz[2],q_hand_world_wxyz[3]]
                     
         
     
@@ -158,7 +158,7 @@ class toycar ():
                
         
                 target_pos_x = x 
-                target_pos_y = y - np.random.uniform(0.05,0.07)
+                target_pos_y = y - np.random.uniform(0.1,0.12)
                 target_pos_z = z
         
     
